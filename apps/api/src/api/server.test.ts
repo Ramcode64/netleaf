@@ -5,11 +5,13 @@ import { buildServer } from "./server.js";
 // These tests assemble the real Fastify app and exercise the HTTP layer via
 // inject() — no network, no DB, no browser. They prove the server wires up all
 // plugins + routes without conflict, and that the auth gate behaves correctly.
-// (Default env: LOCAL_MODE unset → false, so auth is enforced.)
+// LOCAL_MODE is explicitly cleared so auth enforcement is exercised even when
+// the CI workflow sets LOCAL_MODE=true for other test suites.
 
 let app: FastifyInstance;
 
 beforeAll(async () => {
+  delete process.env.LOCAL_MODE;
   app = await buildServer();
   await app.ready();
 });

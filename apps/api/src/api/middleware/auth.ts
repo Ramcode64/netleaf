@@ -17,8 +17,8 @@ export async function requireApiKey(
   reply: FastifyReply
 ): Promise<void> {
   // Local mode — skip auth entirely, useful for personal PC use.
-  // Leave userId/apiKeyId undefined so UUID columns receive null.
-  if (config.localMode) {
+  // Read from env at call time (not frozen config) so tests can toggle it.
+  if (process.env.LOCAL_MODE === "true") {
     return;
   }
 
