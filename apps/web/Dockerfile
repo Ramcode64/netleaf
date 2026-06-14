@@ -18,10 +18,15 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+RUN groupadd -r netleaf && useradd -r -g netleaf netleaf
+
 # Next.js standalone output is fully self-contained
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+
+RUN chown -R netleaf:netleaf /app
+USER netleaf
 
 EXPOSE 3000
 CMD ["node", "server.js"]

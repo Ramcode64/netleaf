@@ -28,7 +28,15 @@ export async function buildServer() {
     },
   });
 
-  await app.register(cors, { origin: true });
+  // Restrict cross-origin access to configured origins. Set CORS_ORIGIN=* to
+  // allow any origin (e.g. public-facing self-hosted API), or comma-separate
+  // specific origins: CORS_ORIGIN=https://app.example.com,http://localhost:3001
+  const corsOrigin: string | string[] | boolean = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN === "*"
+      ? true
+      : process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
+    : false;
+  await app.register(cors, { origin: corsOrigin });
 
   await app.register(rateLimit, {
     max: config.localMode ? 10000 : 100,

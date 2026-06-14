@@ -8,7 +8,7 @@ import { httpUrl } from "../../security/validators.js";
 const ScrapeBody = z.object({
   url: httpUrl(),
   formats: z.array(z.enum(["markdown", "html", "text"])).optional(),
-  waitForSelector: z.string().optional(),
+  waitForSelector: z.string().max(500).optional(),
   timeout: z.number().min(1000).max(60000).optional(),
 });
 

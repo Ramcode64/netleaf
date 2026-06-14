@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { URL } from "url";
+import { isSafeRegexPattern } from "../security/validators.js";
 
 export function extractLinks(html: string, baseUrl: string): string[] {
   const $ = cheerio.load(html);
@@ -43,10 +44,10 @@ export function normalizeUrl(url: string): string {
 
 export function isAllowed(url: string, excludePatterns: string[]): boolean {
   return !excludePatterns.some((pattern) => {
-    try {
-      return new RegExp(pattern).test(url);
-    } catch {
+    if (!isSafeRegexPattern(pattern)) {
+      // Unsafe or invalid regex — fall back to plain substring match
       return url.includes(pattern);
     }
+    return new RegExp(pattern).test(url);
   });
 }

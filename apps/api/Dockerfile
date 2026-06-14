@@ -9,16 +9,22 @@ RUN apt-get update && apt-get install -y \
     libcairo2 libasound2 libatspi2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd -r netleaf && useradd -r -g netleaf netleaf
+
 WORKDIR /app
 
 COPY package.json ./
 RUN npm install
 
-# Install Playwright chromium only
+# Install Playwright chromium only (must run as root)
 RUN npx playwright install chromium
 
 COPY . .
 RUN npm run build
+
+# Drop to non-root for runtime
+RUN chown -R netleaf:netleaf /app
+USER netleaf
 
 EXPOSE 3000
 CMD ["node", "dist/index.js"]
