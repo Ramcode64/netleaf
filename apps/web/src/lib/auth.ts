@@ -1,11 +1,23 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 
-if (process.env.AUTH_SECRET?.startsWith("CHANGE_ME")) {
-  console.warn(
-    "\n⚠️  WARNING: AUTH_SECRET is set to the default placeholder value.\n" +
-    "   Sessions are not secure. Generate a real secret:\n" +
-    "   openssl rand -base64 32\n"
-  );
+const _secret = process.env.AUTH_SECRET ?? "";
+if (
+  !_secret ||
+  _secret.length < 32 ||
+  /^(change.me|replace.me|secret|placeholder|example|changeme)/i.test(_secret)
+) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AUTH_SECRET is missing or is a placeholder. " +
+      "Generate a secure value with: openssl rand -base64 32"
+    );
+  } else {
+    console.warn(
+      "\n⚠️  WARNING: AUTH_SECRET is weak or using a placeholder value.\n" +
+      "   Sessions are not secure. Generate a real secret:\n" +
+      "   openssl rand -base64 32\n"
+    );
+  }
 }
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
@@ -24,6 +36,26 @@ const providers: NextAuthConfig["providers"] = [
       const email = credentials?.email as string | undefined;
       const password = credentials?.password as string | undefined;
       if (!email || !password) return null;
+
+      // Rate limit: 10 login attempts per email per 15 minutes
+      const loginAttempts = (globalThis as Record<string, unknown>)._loginAttempts as
+        | Map<string, { count: number; resetAt: number }>
+        | undefined;
+      const loginMap =
+        loginAttempts ??
+        ((globalThis as Record<string, unknown>)._loginAttempts = new Map<
+          string,
+          { count: number; resetAt: number }
+        >());
+      const key = email.toLowerCase();
+      const now = Date.now();
+      const entry = loginMap.get(key);
+      if (entry && now < entry.resetAt) {
+        entry.count++;
+        if (entry.count > 10) return null;
+      } else {
+        loginMap.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+      }
 
       const db = getDb();
       const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);

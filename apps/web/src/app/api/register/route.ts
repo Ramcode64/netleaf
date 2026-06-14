@@ -9,7 +9,35 @@ const RegisterSchema = z.object({
   name: z.string().min(1).optional(),
 });
 
+// Simple in-process rate limiter: 5 registrations per IP per 10 minutes.
+// Not distributed — each serverless instance tracks independently — but still
+// blocks naive scripted abuse effectively.
+const attempts = new Map<string, { count: number; resetAt: number }>();
+const WINDOW_MS = 10 * 60 * 1000;
+const MAX_ATTEMPTS = 5;
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = attempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > MAX_ATTEMPTS;
+}
+
 export async function POST(request: Request) {
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Too many registration attempts. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -32,7 +60,7 @@ export async function POST(request: Request) {
 
   // Insert and rely on the UNIQUE(email) constraint to reject duplicates. This
   // avoids a check-then-insert race and avoids confirming whether an email is
-  // registered (account-enumeration) via a distinct error/status.
+  // registered (account enumeration) via a distinct error/status.
   try {
     const [created] = await db
       .insert(users)
@@ -40,7 +68,6 @@ export async function POST(request: Request) {
       .returning({ id: users.id, email: users.email });
     return NextResponse.json({ user: created }, { status: 201 });
   } catch {
-    // Unique-violation or any insert error → generic response.
     return NextResponse.json(
       { error: "Unable to register with the provided details." },
       { status: 400 }

@@ -25,11 +25,18 @@ export async function createApiKey(name: string): Promise<CreatedKey> {
   const userId = await requireUserId();
   if (!name.trim()) throw new Error("Name is required");
 
+  const db = getDb();
+
+  const existing = await db
+    .select({ id: apiKeys.id })
+    .from(apiKeys)
+    .where(and(eq(apiKeys.userId, userId), eq(apiKeys.isActive, true)));
+  if (existing.length >= 10) throw new Error("Maximum of 10 active API keys allowed");
+
   const rawKey = `nl_${randomBytes(32).toString("hex")}`;
   const keyHash = createHash("sha256").update(rawKey).digest("hex");
   const keyPrefix = rawKey.slice(0, 16);
 
-  const db = getDb();
   const [key] = await db
     .insert(apiKeys)
     .values({ userId, name: name.trim(), keyHash, keyPrefix })
