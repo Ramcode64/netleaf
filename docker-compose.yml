@@ -18,6 +18,10 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: >
+      sh -c "[ -n \"$$REDIS_PASSWORD\" ] && exec redis-server --requirepass \"$$REDIS_PASSWORD\" || exec redis-server"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -44,7 +48,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       LOCAL_MODE: ${LOCAL_MODE:-false}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       DATABASE_URL: postgresql://netleaf:${POSTGRES_PASSWORD:-netleaf_dev}@postgres:5432/netleaf
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

@@ -36,8 +36,8 @@ export async function mapRoutes(app: FastifyInstance): Promise<void> {
           },
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Map failed";
-        return reply.status(500).send({ success: false, error: message });
+        request.log.error({ err }, "map error");
+        return reply.status(500).send({ success: false, error: "Map failed. Check server logs for details." });
       }
     }
   );

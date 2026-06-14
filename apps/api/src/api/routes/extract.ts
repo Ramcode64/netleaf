@@ -9,7 +9,7 @@ const ExtractBodySchema = z.object({
   schema: z.record(z.unknown()),
   instructions: z.string().optional(),
   provider: z.enum(["claude", "openai", "ollama"]).optional(),
-  waitForSelector: z.string().optional(),
+  waitForSelector: z.string().max(500).optional(),
   timeout: z.number().int().min(1000).max(60000).optional(),
 });
 
@@ -39,9 +39,11 @@ export async function extractRoutes(app: FastifyInstance): Promise<void> {
             error: err.message,
           });
         }
+        // Don't leak internal error details (LLM API messages, stack traces, etc.)
+        request.log.error({ err }, "extract error");
         return reply.status(500).send({
           success: false,
-          error: err instanceof Error ? err.message : "Extraction failed",
+          error: "Extraction failed. Check server logs for details.",
         });
       }
     }

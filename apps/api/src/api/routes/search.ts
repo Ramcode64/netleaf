@@ -30,9 +30,16 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
         const result = await search(parsed.data);
         return reply.send({ success: true, data: result });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Search failed";
-        const status = message.includes("BRAVE_API_KEY") ? 400 : 502;
-        return reply.status(status).send({ success: false, error: message });
+        const message = err instanceof Error ? err.message : "";
+        // Detect missing API key without leaking the env var name to the caller
+        const isMissingKey = message.includes("BRAVE_API_KEY") || message.includes("not configured");
+        request.log.error({ err }, "search error");
+        return reply.status(isMissingKey ? 400 : 502).send({
+          success: false,
+          error: isMissingKey
+            ? "Search is not configured. Set BRAVE_API_KEY on the server."
+            : "Search failed. Check server logs for details.",
+        });
       }
     }
   );

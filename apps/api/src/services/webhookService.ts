@@ -1,3 +1,4 @@
+import { createHmac } from "crypto";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "../db/client.js";
 import type { ScrapeResult } from "../types/index.js";
@@ -36,15 +37,23 @@ export async function deliverWebhook(
   };
   const body = JSON.stringify(payload);
 
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  const signature = webhookSecret
+    ? "sha256=" + createHmac("sha256", webhookSecret).update(body).digest("hex")
+    : undefined;
+
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "User-Agent": "Netleaf/1.0 (+https://netleaf.org/bot)",
+        "X-Netleaf-Event": "crawl.completed",
+      };
+      if (signature) headers["X-Netleaf-Signature"] = signature;
+
       const res = await fetchImpl(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Netleaf/1.0 (+https://netleaf.org/bot)",
-          "X-Netleaf-Event": "crawl.completed",
-        },
+        headers,
         body,
       });
 
