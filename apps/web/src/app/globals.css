@@ -48,9 +48,17 @@ body {
     0 4px 20px -4px rgba(34, 197, 94, 0.2);
 }
 
-/* Gradient text utility */
+/* Gradient text utility — for dark backgrounds */
 .text-gradient {
   background: linear-gradient(135deg, #86efac 0%, #4ade80 40%, #22c55e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient text — for light backgrounds */
+.text-gradient-dark {
+  background: linear-gradient(135deg, #16a34a 0%, #22c55e 60%, #4ade80 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

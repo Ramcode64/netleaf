@@ -14,59 +14,55 @@ const included = [
 
 export function Pricing() {
   return (
-    <section id="pricing" className="mx-auto max-w-2xl px-6 py-24">
-      <div className="mb-12 text-center">
-        <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Free forever. Always.</h2>
-        <p className="mt-4 text-ink-300">
+    <section id="pricing" className="bg-ink-50 py-32">
+      <div className="mx-auto max-w-2xl px-6 text-center">
+        {/* Header */}
+        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-leaf-600">
+          Pricing
+        </p>
+        <h2 className="text-5xl font-bold tracking-tight text-ink-900 md:text-6xl">
+          Free. Forever.
+        </h2>
+        <p className="mt-5 text-xl text-ink-400">
           Self-host on any machine. The only cost is your compute.
         </p>
-      </div>
 
-      <div className="relative rounded-2xl border border-leaf-500/25 bg-ink-900/60 p-8 glow">
-        {/* Top badge */}
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="rounded-full border border-leaf-500/30 bg-leaf-950 px-3 py-1 text-xs font-medium text-leaf-400">
-            Self-hosted
+        {/* Big $0 */}
+        <div className="my-16">
+          <span className="text-gradient-dark text-[clamp(96px,20vw,160px)] font-bold leading-none">
+            $0
           </span>
+          <p className="mt-3 text-ink-400">per month. For everything. Always.</p>
         </div>
 
-        {/* Price */}
-        <div className="mt-2 flex items-end gap-2">
-          <span className="text-6xl font-bold tracking-tight text-white">$0</span>
-          <span className="mb-2 text-ink-300">/ month, forever</span>
+        {/* Feature list card */}
+        <div className="rounded-2xl bg-white p-8 text-left shadow-sm">
+          <ul className="space-y-4">
+            {included.map((item) => (
+              <li key={item} className="flex items-center gap-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-leaf-100">
+                  <Check className="h-3 w-3 text-leaf-600" />
+                </span>
+                <span className="text-sm text-ink-900">{item}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <p className="mt-3 text-sm text-ink-300">
-          No credit card. No cloud. No vendor account.
-        </p>
-
-        <hr className="my-6 border-white/[0.07]" />
-
-        {/* Included features */}
-        <ul className="space-y-3">
-          {included.map((item) => (
-            <li key={item} className="flex items-start gap-3 text-sm">
-              <span className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-leaf-500/15">
-                <Check className="h-2.5 w-2.5 text-leaf-400" />
-              </span>
-              <span className="text-ink-100">{item}</span>
-            </li>
-          ))}
-        </ul>
-
+        {/* CTA */}
         <Link href="/signup" className="mt-8 block">
-          <Button size="lg" className="w-full gap-2 glow group">
-            Get started free
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          <Button size="lg" className="glow w-full gap-2">
+            Get started — it&apos;s free
+            <ArrowRight className="h-4 w-4" />
           </Button>
         </Link>
 
-        <p className="mt-4 text-center text-xs text-ink-300">
-          Or run{" "}
-          <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-leaf-300">
+        <p className="mt-5 text-sm text-ink-400">
+          No credit card required.{" "}
+          <code className="rounded-md bg-ink-100 px-1.5 py-0.5 font-mono text-xs text-leaf-700">
             docker compose up
           </code>{" "}
-          right now — no sign-up needed in local mode.
+          and you&apos;re running.
         </p>
       </div>
     </section>

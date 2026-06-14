@@ -15,62 +15,77 @@ const rows: Row[] = [
 
 function FirecrawlCell({ value }: { value: string | boolean }) {
   if (typeof value === "boolean") {
-    return value
-      ? <Check className="mx-auto h-4 w-4 text-ink-300" />
-      : <X className="mx-auto h-4 w-4 text-ink-300/30" />;
+    return value ? (
+      <Check className="mx-auto h-4 w-4 text-ink-400" />
+    ) : (
+      <X className="mx-auto h-4 w-4 text-ink-300/30" />
+    );
   }
-  return <span className="text-ink-300">{value}</span>;
+  return <span className="text-ink-400">{value}</span>;
 }
 
 function NetleafCell({ value }: { value: string | boolean }) {
   if (typeof value === "boolean") {
-    return value
-      ? <Check className="mx-auto h-4 w-4 text-leaf-400" />
-      : <X className="mx-auto h-4 w-4 text-ink-300/30" />;
+    return value ? (
+      <Check className="mx-auto h-4 w-4 text-leaf-600" />
+    ) : (
+      <X className="mx-auto h-4 w-4 text-ink-300/30" />
+    );
   }
-  return <span className="font-medium text-white">{value}</span>;
+  return <span className="font-medium text-ink-900">{value}</span>;
 }
 
 export function CompareTable() {
   return (
-    <section id="compare" className="mx-auto max-w-4xl px-6 py-24">
-      <div className="mb-14 text-center">
-        <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Netleaf vs Firecrawl</h2>
-        <p className="mt-4 text-ink-300">Same job. No lock-in, no meter, no cloud dependency.</p>
-      </div>
+    <section id="compare" className="bg-white py-32">
+      <div className="mx-auto max-w-4xl px-6">
+        {/* Header */}
+        <div className="mb-16 text-center">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-leaf-600">
+            Compare
+          </p>
+          <h2 className="text-5xl font-bold tracking-tight text-ink-900 md:text-6xl">
+            Netleaf vs Firecrawl
+          </h2>
+          <p className="mt-5 text-xl text-ink-400">
+            Same job. No lock-in, no meter, no cloud dependency.
+          </p>
+        </div>
 
-      <div className="overflow-hidden rounded-xl border border-white/[0.08]">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-white/[0.08]">
-              <th className="bg-ink-900/40 px-5 py-4 text-left font-medium text-ink-300">Feature</th>
-              <th className="bg-ink-900/40 px-5 py-4 text-center font-medium text-ink-300">Firecrawl</th>
-              {/* Highlighted Netleaf column header */}
-              <th className="bg-leaf-950/60 px-5 py-4 text-center">
-                <span className="flex items-center justify-center gap-1.5 font-semibold text-leaf-300">
-                  <Leaf className="h-3.5 w-3.5" />
-                  Netleaf
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={row.feature} className="border-b border-white/[0.05] last:border-0">
-                <td className={`px-5 py-3.5 text-ink-100 ${i % 2 ? "bg-white/[0.01]" : ""}`}>
-                  {row.feature}
-                </td>
-                <td className={`px-5 py-3.5 text-center ${i % 2 ? "bg-white/[0.01]" : ""}`}>
-                  <FirecrawlCell value={row.firecrawl} />
-                </td>
-                {/* Netleaf column always tinted */}
-                <td className={`px-5 py-3.5 text-center ${i % 2 ? "bg-leaf-950/30" : "bg-leaf-950/20"}`}>
-                  <NetleafCell value={row.netleaf} />
-                </td>
+        {/* Table */}
+        <div className="overflow-hidden rounded-2xl border border-ink-100 shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-ink-100 bg-ink-50">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-ink-400">
+                  Feature
+                </th>
+                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-ink-400">
+                  Firecrawl
+                </th>
+                <th className="bg-leaf-50 px-6 py-4 text-center">
+                  <span className="flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-leaf-700">
+                    <Leaf className="h-3 w-3" />
+                    Netleaf
+                  </span>
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.feature} className="border-b border-ink-50 last:border-0">
+                  <td className="px-6 py-4 font-medium text-ink-900">{row.feature}</td>
+                  <td className="px-6 py-4 text-center">
+                    <FirecrawlCell value={row.firecrawl} />
+                  </td>
+                  <td className="bg-leaf-50/60 px-6 py-4 text-center">
+                    <NetleafCell value={row.netleaf} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );

@@ -6,96 +6,109 @@ import {
   Search,
   CalendarClock,
   GitCompareArrows,
+  Leaf,
 } from "lucide-react";
 
 const features = [
   {
     icon: FileText,
     title: "Scrape",
-    desc: "Single-page extraction to clean Markdown, HTML, links, or raw text. Playwright-powered for JS-heavy sites.",
     num: "01",
+    desc: "Single-page extraction to clean Markdown, HTML, or text. Playwright-powered for JS-heavy sites.",
   },
   {
     icon: Network,
     title: "Crawl",
-    desc: "Recursive site crawls with configurable depth, concurrency, and an async BullMQ job queue. Survives restarts.",
     num: "02",
+    desc: "Recursive site crawls with configurable depth. Async BullMQ queue — survives restarts.",
   },
   {
     icon: MapIcon,
     title: "Map",
-    desc: "Instant URL discovery via robots.txt, XML sitemaps, and fallback link extraction. Returns thousands of URLs in seconds.",
     num: "03",
+    desc: "Instant URL discovery via sitemaps and link extraction. Returns thousands of URLs in seconds.",
   },
   {
     icon: Braces,
     title: "Extract",
-    desc: "Structured JSON from any page using your own JSON Schema. Choose Claude, OpenAI, or fully offline Ollama.",
     num: "04",
+    desc: "Structured JSON from any page using your own JSON Schema. Choose Claude, OpenAI, or fully offline Ollama.",
   },
   {
     icon: Search,
     title: "Search",
-    desc: "Brave Search integration with optional parallel scraping of every result. Structured output from live web results.",
     num: "05",
+    desc: "Brave Search integration with optional parallel scraping of every result.",
   },
   {
     icon: CalendarClock,
     title: "Schedule",
-    desc: "Cron-based recurring crawls, managed in-process. Set it up once and get fresh data on your own schedule.",
     num: "06",
+    desc: "Cron-based recurring crawls. Set it once, get fresh data on your own schedule.",
   },
   {
     icon: GitCompareArrows,
     title: "Diff",
-    desc: "Cryptographic change detection between crawl runs, per page. Know exactly what changed, and when.",
     num: "07",
+    desc: "Cryptographic change detection between crawl runs. Know exactly what changed and when.",
   },
 ];
 
 export function Features() {
   return (
-    <section id="features" className="mx-auto max-w-6xl px-6 py-24">
-      <div className="mb-14 text-center">
-        <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-          Everything Firecrawl does.{" "}
-          <span className="text-gradient">And more.</span>
-        </h2>
-        <p className="mt-4 text-ink-300">Seven endpoints. One self-hosted binary. Zero dollars.</p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {features.map((f) => (
-          <div
-            key={f.title}
-            className="group relative rounded-xl border border-white/[0.07] bg-ink-900/40 p-6
-                       transition-all duration-300 hover:border-leaf-500/30 hover:bg-ink-900/60 hover:glow-sm"
-          >
-            {/* Number accent */}
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-leaf-500/20 bg-leaf-950/60">
-                <f.icon className="h-4.5 w-4.5 text-leaf-400" />
-              </div>
-              <span className="font-mono text-xs text-ink-300/50 select-none">{f.num}</span>
-            </div>
-            <h3 className="text-base font-semibold text-white">{f.title}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-ink-300">{f.desc}</p>
-          </div>
-        ))}
-
-        {/* Spacer card — "open source" CTA */}
-        <div className="flex flex-col items-start justify-between rounded-xl border border-dashed border-white/[0.07] bg-transparent p-6">
-          <p className="text-sm leading-relaxed text-ink-300">
-            Netleaf is MIT-licensed and fully open source. Fork it, extend it, or contribute upstream.
+    <section id="features" className="bg-ink-50 py-32">
+      <div className="mx-auto max-w-6xl px-6">
+        {/* Header */}
+        <div className="mb-20 text-center">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-leaf-600">
+            Seven endpoints
           </p>
-          <a
-            href="https://github.com/your-username/netleaf"
-            target="_blank"
-            rel="noreferrer"
-            className="mt-4 text-sm font-medium text-leaf-400 hover:text-leaf-300 transition-colors"
-          >
-            View source on GitHub →
-          </a>
+          <h2 className="text-balance text-5xl font-bold tracking-tight text-ink-900 md:text-6xl">
+            Everything you need
+            <br />
+            to turn the web into data.
+          </h2>
+          <p className="mx-auto mt-6 max-w-xl text-lg text-ink-400">
+            One self-hosted binary. Zero dollars. No rate limits.
+          </p>
+        </div>
+
+        {/* Feature cards */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((f) => (
+            <div
+              key={f.title}
+              className="group rounded-2xl bg-white p-7 transition-shadow duration-200 hover:shadow-md"
+            >
+              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-leaf-50">
+                <f.icon className="h-5 w-5 text-leaf-600" />
+              </div>
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <h3 className="text-base font-semibold text-ink-900">{f.title}</h3>
+                <span className="shrink-0 font-mono text-xs text-ink-400/50">{f.num}</span>
+              </div>
+              <p className="text-sm leading-relaxed text-ink-400">{f.desc}</p>
+            </div>
+          ))}
+
+          {/* 8th card — open source CTA */}
+          <div className="rounded-2xl border-2 border-dashed border-leaf-200 bg-leaf-50/60 p-7">
+            <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-leaf-100">
+              <Leaf className="h-5 w-5 text-leaf-600" />
+            </div>
+            <h3 className="mb-2 text-base font-semibold text-ink-900">Open source</h3>
+            <p className="text-sm leading-relaxed text-ink-400">
+              MIT licensed. Fork it, extend it, or contribute upstream.
+            </p>
+            <a
+              href="https://github.com/Ramcode64/netleaf"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 inline-block text-sm font-medium text-leaf-600 transition-colors hover:text-leaf-700"
+            >
+              View on GitHub →
+            </a>
+          </div>
         </div>
       </div>
     </section>
