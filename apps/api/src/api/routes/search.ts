@@ -1,0 +1,39 @@
+import { FastifyInstance } from "fastify";
+import { z } from "zod";
+import { requireApiKey } from "../middleware/auth.js";
+import { search } from "../../services/searchService.js";
+
+const SearchBodySchema = z.object({
+  query: z.string().min(1, "query must not be empty"),
+  maxResults: z.number().int().min(1).max(10).optional().default(5),
+  scrape: z.boolean().optional().default(true),
+  formats: z
+    .array(z.enum(["markdown", "html", "text"]))
+    .optional()
+    .default(["markdown"]),
+});
+
+export async function searchRoutes(app: FastifyInstance): Promise<void> {
+  app.post(
+    "/v1/search",
+    { preHandler: requireApiKey },
+    async (request, reply) => {
+      const parsed = SearchBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: parsed.error.issues.map((i) => i.message).join(", "),
+        });
+      }
+
+      try {
+        const result = await search(parsed.data);
+        return reply.send({ success: true, data: result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Search failed";
+        const status = message.includes("BRAVE_API_KEY") ? 400 : 502;
+        return reply.status(status).send({ success: false, error: message });
+      }
+    }
+  );
+}

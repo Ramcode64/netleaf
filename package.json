@@ -1,0 +1,21 @@
+{
+  "name": "netleaf",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Free, open-source web data platform. Self-hostable alternative to Firecrawl.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/api && npm run build -w apps/web",
+    "test": "npm run test -w apps/api",
+    "lint": "npm run lint -w apps/api && npm run lint -w apps/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

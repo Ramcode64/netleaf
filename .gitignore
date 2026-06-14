@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+.next/
+
+# NOTE: drizzle/ migration files ARE committed (source artifacts).
+# Do not gitignore them — a fresh clone needs them to migrate the DB.
