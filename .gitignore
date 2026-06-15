@@ -1,6 +1,9 @@
 node_modules/
 dist/
 .env
+.env.*
+vercel.env
+railway.env
 *.log
 .DS_Store
 .next/
