@@ -11,7 +11,13 @@ export default async function ApiKeysPage() {
   const db = getDb();
 
   const rows = await db
-    .select()
+    .select({
+      id: apiKeys.id,
+      name: apiKeys.name,
+      keyPrefix: apiKeys.keyPrefix,
+      createdAt: apiKeys.createdAt,
+      lastUsedAt: apiKeys.lastUsedAt,
+    })
     .from(apiKeys)
     .where(and(eq(apiKeys.userId, userId), eq(apiKeys.isActive, true)));
 

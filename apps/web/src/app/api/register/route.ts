@@ -4,9 +4,9 @@ import bcrypt from "bcryptjs";
 import { getDb, users } from "@/lib/db";
 
 const RegisterSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  name: z.string().min(1).optional(),
+  email: z.string().email().max(254),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+  name: z.string().min(1).max(100).optional(),
 });
 
 // Simple in-process rate limiter: 5 registrations per IP per 10 minutes.
@@ -28,8 +28,14 @@ function isRateLimited(ip: string): boolean {
 }
 
 export async function POST(request: Request) {
+  // Prefer X-Real-IP (set by a trusted reverse proxy) over X-Forwarded-For,
+  // which an attacker can forge to cycle rate-limit buckets. Neither is
+  // unforgeable without network-level enforcement, but X-Real-IP is harder to
+  // spoof because most proxies only set it once (unlike XFF which appends).
   const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+    request.headers.get("x-real-ip") ??
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown";
 
   if (isRateLimited(ip)) {
     return NextResponse.json(

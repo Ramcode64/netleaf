@@ -36,25 +36,38 @@ const providers: NextAuthConfig["providers"] = [
       const email = credentials?.email as string | undefined;
       const password = credentials?.password as string | undefined;
       if (!email || !password) return null;
+      // Mirror the length caps enforced at registration to prevent oversized
+      // strings from bloating the in-process rate-limit map or the DB query.
+      if (email.length > 254 || password.length > 128) return null;
 
-      // Rate limit: 10 login attempts per email per 15 minutes
-      const loginAttempts = (globalThis as Record<string, unknown>)._loginAttempts as
-        | Map<string, { count: number; resetAt: number }>
-        | undefined;
-      const loginMap =
-        loginAttempts ??
-        ((globalThis as Record<string, unknown>)._loginAttempts = new Map<
-          string,
-          { count: number; resetAt: number }
-        >());
+      // In-process login rate limit: 10 attempts per email per 15 minutes.
+      // Limitation: resets on server restart and is not shared across processes
+      // or serverless instances. For production multi-instance deployments,
+      // replace with a Redis-backed counter. For single-instance self-hosting
+      // this is sufficient to block naive credential-stuffing scripts.
+      const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+      const LOGIN_MAX = 10;
+      type LoginEntry = { count: number; resetAt: number };
+      const g = globalThis as Record<string, unknown>;
+      if (!g._loginAttempts) g._loginAttempts = new Map<string, LoginEntry>();
+      const loginMap = g._loginAttempts as Map<string, LoginEntry>;
+
       const key = email.toLowerCase();
       const now = Date.now();
+
+      // Evict expired entries to prevent unbounded map growth (memory leak)
+      if (loginMap.size > 5000) {
+        for (const [k, v] of loginMap) {
+          if (now > v.resetAt) loginMap.delete(k);
+        }
+      }
+
       const entry = loginMap.get(key);
       if (entry && now < entry.resetAt) {
         entry.count++;
-        if (entry.count > 10) return null;
+        if (entry.count > LOGIN_MAX) return null;
       } else {
-        loginMap.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+        loginMap.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
       }
 
       const db = getDb();

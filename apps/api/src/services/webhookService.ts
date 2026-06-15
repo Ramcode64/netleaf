@@ -7,10 +7,20 @@ import { safeFetch } from "../security/ssrf.js";
 const MAX_ATTEMPTS = 3;
 const BASE_BACKOFF_MS = 1000;
 
+// Full page content (markdown, html, text) is omitted from the webhook payload.
+// A 500-page crawl with 5 MB per page would produce a 2.5 GB JSON body — OOM.
+// Receivers that need content should poll GET /v1/crawl/:id after the event fires.
+export interface WebhookPageSummary {
+  url: string;
+  title?: string;
+  success: boolean;
+  error?: string;
+}
+
 export interface WebhookPayload {
   jobId: string;
   status: "completed";
-  pages: ScrapeResult[];
+  pages: WebhookPageSummary[];
   totalScraped: number;
 }
 
@@ -29,10 +39,17 @@ export async function deliverWebhook(
   // (SSRF). Tests inject their own impl to bypass the network entirely.
   fetchImpl: (url: string, init?: RequestInit) => Promise<Response> = safeFetch
 ): Promise<boolean> {
+  const summaries: WebhookPageSummary[] = pages.map((p) => ({
+    url: p.url,
+    title: p.metadata?.title,
+    success: p.success,
+    error: p.error,
+  }));
+
   const payload: WebhookPayload = {
     jobId,
     status: "completed",
-    pages,
+    pages: summaries,
     totalScraped: pages.length,
   };
   const body = JSON.stringify(payload);

@@ -17,6 +17,10 @@ export interface MapResult {
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 1000;
 const FETCH_TIMEOUT_MS = 10_000;
+// Cap URLs returned per sitemap file. A sitemap can legally hold 50,000 entries;
+// without this cap, 20 child sitemaps × 50,000 entries = 1M strings (~100 MB)
+// would accumulate in memory before dedup slices to the user's limit.
+const MAX_URLS_PER_SITEMAP = 5_000;
 
 export async function mapSite(options: MapOptions): Promise<MapResult> {
   const { url, includeSubdomains = false, limit = DEFAULT_LIMIT } = options;
@@ -106,6 +110,7 @@ async function fetchSitemapLinks(sitemapUrl: string): Promise<string[]> {
     // Regular sitemap — contains <url><loc>…</loc></url>
     const links: string[] = [];
     $("url > loc").each((_, el) => {
+      if (links.length >= MAX_URLS_PER_SITEMAP) return false; // break cheerio each
       const loc = $(el).text().trim();
       if (loc) links.push(loc);
     });

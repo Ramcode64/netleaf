@@ -78,14 +78,14 @@ export function Features() {
           {features.map((f) => (
             <div
               key={f.title}
-              className="group rounded-2xl bg-white p-7 transition-shadow duration-200 hover:shadow-md"
+              className="group rounded-2xl bg-white p-7 ring-1 ring-ink-100 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-ink-200"
             >
-              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-leaf-50">
+              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-leaf-50 to-leaf-100">
                 <f.icon className="h-5 w-5 text-leaf-600" />
               </div>
               <div className="mb-2 flex items-baseline justify-between gap-2">
                 <h3 className="text-base font-semibold text-ink-900">{f.title}</h3>
-                <span className="shrink-0 font-mono text-xs text-ink-400/50">{f.num}</span>
+                <span className="shrink-0 font-mono text-[11px] text-ink-300">{f.num}</span>
               </div>
               <p className="text-sm leading-relaxed text-ink-400">{f.desc}</p>
             </div>

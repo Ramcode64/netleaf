@@ -1,69 +1,162 @@
-import { Check, X, Leaf } from "lucide-react";
+import { Check, X, Leaf, Minus } from "lucide-react";
 
-type Row = { feature: string; firecrawl: string | boolean; netleaf: string | boolean };
+type CellValue = string | boolean | "partial";
+
+type Row = {
+  feature: string;
+  firecrawl: CellValue;
+  apify: CellValue;
+  diffbot: CellValue;
+  scrapingbee: CellValue;
+  crawlee: CellValue;
+  netleaf: CellValue;
+};
 
 const rows: Row[] = [
-  { feature: "Self-hosted", firecrawl: "Complex setup", netleaf: "docker compose up" },
-  { feature: "Rate limits", firecrawl: "Strict free tier", netleaf: "None on self-host" },
-  { feature: "LLM provider", firecrawl: "One (locked)", netleaf: "Claude · OpenAI · Ollama" },
-  { feature: "Scheduled crawls", firecrawl: false, netleaf: true },
-  { feature: "Change detection", firecrawl: false, netleaf: true },
-  { feature: "Export formats", firecrawl: "JSON only", netleaf: "JSON · CSV · XML · ZIP" },
-  { feature: "Local-only mode", firecrawl: false, netleaf: true },
-  { feature: "Price", firecrawl: "$$ at scale", netleaf: "Free forever" },
+  {
+    feature: "Self-hosted",
+    firecrawl: "Complex setup",
+    apify: false,
+    diffbot: false,
+    scrapingbee: false,
+    crawlee: "Yes (library)",
+    netleaf: "docker compose up",
+  },
+  {
+    feature: "Rate limits",
+    firecrawl: "500 credits/mo free",
+    apify: "$5 credits/mo free",
+    diffbot: "10K calls/mo trial",
+    scrapingbee: "1K credits trial",
+    crawlee: false,
+    netleaf: "None",
+  },
+  {
+    feature: "AI/LLM extraction",
+    firecrawl: "Cloud only",
+    apify: false,
+    diffbot: "Proprietary AI",
+    scrapingbee: false,
+    crawlee: false,
+    netleaf: "Claude · GPT · Ollama",
+  },
+  {
+    feature: "Scheduled crawls",
+    firecrawl: false,
+    apify: true,
+    diffbot: true,
+    scrapingbee: false,
+    crawlee: false,
+    netleaf: true,
+  },
+  {
+    feature: "Change detection",
+    firecrawl: false,
+    apify: false,
+    diffbot: "partial",
+    scrapingbee: false,
+    crawlee: false,
+    netleaf: true,
+  },
+  {
+    feature: "Export formats",
+    firecrawl: "Markdown, JSON",
+    apify: "JSON, CSV, Excel, XML",
+    diffbot: "JSON",
+    scrapingbee: "HTML, JSON",
+    crawlee: "JSON, CSV",
+    netleaf: "JSON · CSV · XML · ZIP",
+  },
+  {
+    feature: "Local-only mode",
+    firecrawl: false,
+    apify: false,
+    diffbot: false,
+    scrapingbee: false,
+    crawlee: true,
+    netleaf: true,
+  },
+  {
+    feature: "Open source",
+    firecrawl: "AGPL-3.0",
+    apify: "SDK only (MIT)",
+    diffbot: false,
+    scrapingbee: false,
+    crawlee: "Apache 2.0",
+    netleaf: "MIT",
+  },
+  {
+    feature: "Pricing",
+    firecrawl: "$16 – $333/mo",
+    apify: "$49+/mo",
+    diffbot: "$299+/mo",
+    scrapingbee: "$49+/mo",
+    crawlee: "Free",
+    netleaf: "Free forever",
+  },
 ];
 
-function FirecrawlCell({ value }: { value: string | boolean }) {
-  if (typeof value === "boolean") {
-    return value ? (
-      <Check className="mx-auto h-4 w-4 text-ink-400" />
-    ) : (
-      <X className="mx-auto h-4 w-4 text-ink-300/30" />
-    );
-  }
-  return <span className="text-ink-400">{value}</span>;
-}
+const competitors = [
+  { key: "firecrawl", label: "Firecrawl" },
+  { key: "apify",     label: "Apify" },
+  { key: "diffbot",   label: "Diffbot" },
+  { key: "scrapingbee", label: "ScrapingBee" },
+  { key: "crawlee",   label: "Crawlee" },
+] as const;
 
-function NetleafCell({ value }: { value: string | boolean }) {
+function Cell({ value, highlight = false }: { value: CellValue; highlight?: boolean }) {
+  if (value === "partial") {
+    return <Minus className="mx-auto h-4 w-4 text-amber-500/70" />;
+  }
   if (typeof value === "boolean") {
     return value ? (
-      <Check className="mx-auto h-4 w-4 text-leaf-600" />
+      <Check className={`mx-auto h-4 w-4 ${highlight ? "text-leaf-600" : "text-ink-400"}`} />
     ) : (
       <X className="mx-auto h-4 w-4 text-ink-300/30" />
     );
   }
-  return <span className="font-medium text-ink-900">{value}</span>;
+  return (
+    <span className={highlight ? "font-semibold text-ink-900" : "text-ink-400"}>
+      {value}
+    </span>
+  );
 }
 
 export function CompareTable() {
   return (
     <section id="compare" className="bg-white py-32">
-      <div className="mx-auto max-w-4xl px-6">
+      <div className="mx-auto max-w-6xl px-6">
         {/* Header */}
         <div className="mb-16 text-center">
           <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-leaf-600">
             Compare
           </p>
           <h2 className="text-5xl font-bold tracking-tight text-ink-900 md:text-6xl">
-            Netleaf vs Firecrawl
+            Netleaf vs the field
           </h2>
           <p className="mt-5 text-xl text-ink-400">
             Same job. No lock-in, no meter, no cloud dependency.
           </p>
         </div>
 
-        {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-ink-100 shadow-sm">
-          <table className="w-full text-sm">
+        {/* Scrollable table wrapper */}
+        <div className="overflow-x-auto rounded-2xl border border-ink-100 shadow-sm">
+          <table className="w-full min-w-[780px] text-sm">
             <thead>
               <tr className="border-b border-ink-100 bg-ink-50">
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-ink-400">
+                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-ink-400 w-36">
                   Feature
                 </th>
-                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-ink-400">
-                  Firecrawl
-                </th>
-                <th className="bg-leaf-50 px-6 py-4 text-center">
+                {competitors.map((c) => (
+                  <th
+                    key={c.key}
+                    className="px-4 py-4 text-center text-xs font-semibold uppercase tracking-wider text-ink-400"
+                  >
+                    {c.label}
+                  </th>
+                ))}
+                {/* Netleaf — highlighted */}
+                <th className="bg-leaf-50 px-4 py-4 text-center">
                   <span className="flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-leaf-700">
                     <Leaf className="h-3 w-3" />
                     Netleaf
@@ -74,18 +167,30 @@ export function CompareTable() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.feature} className="border-b border-ink-50 last:border-0">
-                  <td className="px-6 py-4 font-medium text-ink-900">{row.feature}</td>
-                  <td className="px-6 py-4 text-center">
-                    <FirecrawlCell value={row.firecrawl} />
+                  <td className="px-5 py-3.5 font-medium text-ink-900 whitespace-nowrap">
+                    {row.feature}
                   </td>
-                  <td className="bg-leaf-50/60 px-6 py-4 text-center">
-                    <NetleafCell value={row.netleaf} />
+                  {competitors.map((c) => (
+                    <td key={c.key} className="px-4 py-3.5 text-center">
+                      <Cell value={row[c.key]} />
+                    </td>
+                  ))}
+                  <td className="bg-leaf-50/60 px-4 py-3.5 text-center">
+                    <Cell value={row.netleaf} highlight />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* Footnote */}
+        <p className="mt-5 text-center text-xs text-ink-400">
+          Data accurate as of 2026. Crawlee is an open-source library, not a hosted API — included for reference.
+          <span className="ml-2 inline-flex items-center gap-1">
+            <Minus className="h-3 w-3 text-amber-500/70" /> = partial support.
+          </span>
+        </p>
       </div>
     </section>
   );

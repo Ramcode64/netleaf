@@ -4,7 +4,7 @@ import { Leaf, Github } from "lucide-react";
 const links = {
   Product: [
     { label: "Features", href: "#features" },
-    { label: "vs Firecrawl", href: "#compare" },
+    { label: "Compare", href: "#compare" },
     { label: "Pricing", href: "#pricing" },
   ],
   Developers: [
@@ -86,7 +86,7 @@ export function Footer() {
 
         {/* Bottom row */}
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-ink-100 pt-8 text-xs text-ink-400 sm:flex-row">
-          <span>MIT License © {new Date().getFullYear()} Netleaf</span>
+          <span>MIT License © {new Date().getFullYear()} Netleaf — Built by Aditya Salgare</span>
           <span>Free, open-source, self-hosted forever.</span>
         </div>
       </div>

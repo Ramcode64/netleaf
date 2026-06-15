@@ -17,8 +17,16 @@ export default async function CrawlsPage() {
   const userId = (session!.user as { id: string }).id;
   const db = getDb();
 
+  // Select only display columns — pages JSONB can be MBs per job; fetching all
+  // columns for 50 jobs would pull potentially hundreds of MB into the web process.
   const jobs = await db
-    .select()
+    .select({
+      id: crawlJobs.id,
+      startUrl: crawlJobs.startUrl,
+      status: crawlJobs.status,
+      totalScraped: crawlJobs.totalScraped,
+      createdAt: crawlJobs.createdAt,
+    })
     .from(crawlJobs)
     .where(eq(crawlJobs.userId, userId))
     .orderBy(desc(crawlJobs.createdAt))

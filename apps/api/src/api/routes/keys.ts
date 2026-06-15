@@ -27,11 +27,19 @@ export async function keysRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ success: false, error: "API key management is disabled in local mode" });
       }
 
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: schema.apiKeys.id })
+        .from(schema.apiKeys)
+        .where(and(eq(schema.apiKeys.userId, userId), eq(schema.apiKeys.isActive, true)));
+      if (existing.length >= 10) {
+        return reply.code(400).send({ success: false, error: "Maximum of 10 active API keys allowed" });
+      }
+
       const rawKey = `nl_${randomBytes(32).toString("hex")}`;
       const keyHash = createHash("sha256").update(rawKey).digest("hex");
       const keyPrefix = rawKey.slice(0, 16);
-
-      const db = getDb();
       const [key] = await db
         .insert(schema.apiKeys)
         .values({
@@ -86,6 +94,9 @@ export async function keysRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireApiKey },
     async (request, reply) => {
       const { id } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(id).success) {
+        return reply.code(404).send({ success: false, error: "Key not found" });
+      }
       const userId = request.userId;
       if (!userId) {
         return reply.code(400).send({ success: false, error: "API key management is disabled in local mode" });

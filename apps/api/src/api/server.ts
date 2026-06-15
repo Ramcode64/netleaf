@@ -50,7 +50,9 @@ export async function buildServer() {
       if (auth?.startsWith("Bearer ")) {
         return "k:" + createHash("sha256").update(auth.slice(7).trim()).digest("hex");
       }
-      return req.ip ?? "anon";
+      // Use the raw socket IP, not req.ip, to prevent rate-limit bypass via a
+      // spoofed X-Forwarded-For header on unauthenticated requests.
+      return "ip:" + (req.socket?.remoteAddress ?? "anon");
     },
     errorResponseBuilder: () => ({
       success: false,
@@ -69,6 +71,18 @@ export async function buildServer() {
       }
     }
   );
+
+  // Security headers on every response. These matter even for a JSON API:
+  // nosniff prevents browsers MIME-sniffing JSON as script; X-Frame-Options
+  // blocks clickjacking if the API is ever opened in a browser; the others
+  // are standard hardening.
+  app.addHook("onSend", (_req, reply, _payload, done) => {
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("X-Frame-Options", "DENY");
+    reply.header("Referrer-Policy", "strict-origin-when-cross-origin");
+    reply.header("Permissions-Policy", "interest-cohort=()");
+    done();
+  });
 
   // Usage tracking — runs after response is sent, doesn't block
   app.addHook("onResponse", trackUsage);

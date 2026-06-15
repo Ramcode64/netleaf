@@ -1,10 +1,13 @@
 "use server";
 
 import { randomBytes, createHash } from "crypto";
+import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "./auth";
 import { getDb, apiKeys, scheduledCrawls } from "./db";
+
+const uuidSchema = z.string().uuid();
 
 async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -24,6 +27,7 @@ export interface CreatedKey {
 export async function createApiKey(name: string): Promise<CreatedKey> {
   const userId = await requireUserId();
   if (!name.trim()) throw new Error("Name is required");
+  if (name.trim().length > 100) throw new Error("Name must be at most 100 characters");
 
   const db = getDb();
 
@@ -47,6 +51,7 @@ export async function createApiKey(name: string): Promise<CreatedKey> {
 }
 
 export async function revokeApiKey(id: string): Promise<void> {
+  if (!uuidSchema.safeParse(id).success) return;
   const userId = await requireUserId();
   const db = getDb();
   await db
@@ -57,6 +62,7 @@ export async function revokeApiKey(id: string): Promise<void> {
 }
 
 export async function deleteSchedule(id: string): Promise<void> {
+  if (!uuidSchema.safeParse(id).success) return;
   const userId = await requireUserId();
   const db = getDb();
   await db
@@ -66,6 +72,7 @@ export async function deleteSchedule(id: string): Promise<void> {
 }
 
 export async function toggleSchedule(id: string, isActive: boolean): Promise<void> {
+  if (!uuidSchema.safeParse(id).success) return;
   const userId = await requireUserId();
   const db = getDb();
   await db

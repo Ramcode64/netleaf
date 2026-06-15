@@ -94,14 +94,14 @@ describe("search — with scrape", () => {
 });
 
 describe("search — errors", () => {
-  it("throws when BRAVE_API_KEY is missing", async () => {
+  it("throws when Brave API key is missing", async () => {
     vi.resetModules();
     vi.doMock("../config/index.js", () => ({
       config: { braveApiKey: "", defaultTimeoutMs: 30000 },
     }));
     const { search: searchNoKey } = await import("./searchService.js");
 
-    await expect(searchNoKey({ query: "test" })).rejects.toThrow("BRAVE_API_KEY");
+    await expect(searchNoKey({ query: "test" })).rejects.toThrow("not configured");
   });
 
   it("throws on non-200 Brave API response", async () => {

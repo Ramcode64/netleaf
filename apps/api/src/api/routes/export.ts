@@ -41,10 +41,14 @@ function buildXml(
   const escape = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+  // "]]>" inside a CDATA section terminates it prematurely, enabling XML injection.
+  // The safe fix: split the section at every occurrence of "]]>".
+  const escapeCdata = (s: string) => s.replace(/]]>/g, "]]]]><![CDATA[>");
+
   const items = pages
     .map(
       (p) =>
-        `  <item>\n    <url>${escape(p.url ?? "")}</url>\n    <title>${escape(p.title ?? "")}</title>\n    <markdown><![CDATA[${p.markdown ?? ""}]]></markdown>\n  </item>`
+        `  <item>\n    <url>${escape(p.url ?? "")}</url>\n    <title>${escape(p.title ?? "")}</title>\n    <markdown><![CDATA[${escapeCdata(p.markdown ?? "")}]]></markdown>\n  </item>`
     )
     .join("\n");
 
@@ -57,6 +61,9 @@ export async function exportRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireApiKey },
     async (request, reply) => {
       const { id } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(id).success) {
+        return reply.status(400).send({ success: false, error: "Invalid crawl job ID" });
+      }
 
       const parsed = ExportQuerySchema.safeParse(request.query);
       if (!parsed.success) {

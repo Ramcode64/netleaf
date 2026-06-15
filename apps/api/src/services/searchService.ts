@@ -43,9 +43,9 @@ interface BraveSearchResponse {
 
 export async function search(options: SearchOptions): Promise<SearchResult> {
   if (!config.braveApiKey) {
-    throw new Error(
-      "BRAVE_API_KEY is not configured. Get a free key at https://api.search.brave.com/"
-    );
+    // Message intentionally avoids the env var name — it's surfaced to clients
+    // in the search route error handler.
+    throw new Error("Brave Search is not configured on this server.");
   }
 
   const count = Math.min(options.maxResults ?? 5, MAX_RESULTS_CAP);

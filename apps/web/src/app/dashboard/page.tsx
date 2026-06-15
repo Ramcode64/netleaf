@@ -1,4 +1,4 @@
-import { and, eq, gte } from "drizzle-orm";
+import { and, count, eq, gte } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { getDb, usageEvents, crawlJobs, apiKeys } from "@/lib/db";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
@@ -24,13 +24,24 @@ export default async function OverviewPage() {
   const since = new Date();
   since.setDate(since.getDate() - 13);
 
-  const [events, jobs, keys] = await Promise.all([
+  const [events, [{ jobCount }], [{ keyCount }]] = await Promise.all([
+    // Cap at 5000 rows — we only need per-day counts, not every individual event.
+    // Without a limit a user making 100 req/min for 14 days = 2M+ rows loaded into memory.
     db
       .select()
       .from(usageEvents)
-      .where(and(eq(usageEvents.userId, userId), gte(usageEvents.createdAt, since))),
-    db.select().from(crawlJobs).where(eq(crawlJobs.userId, userId)),
-    db.select().from(apiKeys).where(and(eq(apiKeys.userId, userId), eq(apiKeys.isActive, true))),
+      .where(and(eq(usageEvents.userId, userId), gte(usageEvents.createdAt, since)))
+      .limit(5000),
+    // COUNT only — fetching all job rows (each with a JSONB pages column holding MB of
+    // content) just to display a total count would OOM the web server for power users.
+    db
+      .select({ jobCount: count() })
+      .from(crawlJobs)
+      .where(eq(crawlJobs.userId, userId)),
+    db
+      .select({ keyCount: count() })
+      .from(apiKeys)
+      .where(and(eq(apiKeys.userId, userId), eq(apiKeys.isActive, true))),
   ]);
 
   // Bucket usage by day
@@ -45,6 +56,7 @@ export default async function OverviewPage() {
   }));
 
   const totalPagesScraped = events.reduce((sum, e) => sum + (e.pagesScraped ?? 0), 0);
+  const totalRequests = events.length;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -56,7 +68,7 @@ export default async function OverviewPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardTitle>Requests (14d)</CardTitle>
-          <CardValue>{events.length}</CardValue>
+          <CardValue>{totalRequests}</CardValue>
         </Card>
         <Card>
           <CardTitle>Pages scraped (14d)</CardTitle>
@@ -64,7 +76,7 @@ export default async function OverviewPage() {
         </Card>
         <Card>
           <CardTitle>Active API keys</CardTitle>
-          <CardValue>{keys.length}</CardValue>
+          <CardValue>{keyCount}</CardValue>
         </Card>
       </div>
 
@@ -75,7 +87,7 @@ export default async function OverviewPage() {
 
       <Card>
         <CardTitle className="mb-1">Total crawl jobs</CardTitle>
-        <CardValue>{jobs.length}</CardValue>
+        <CardValue>{jobCount}</CardValue>
       </Card>
     </div>
   );

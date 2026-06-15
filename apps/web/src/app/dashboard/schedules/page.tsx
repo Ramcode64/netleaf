@@ -11,7 +11,13 @@ export default async function SchedulesPage() {
   const db = getDb();
 
   const rows = await db
-    .select()
+    .select({
+      id: scheduledCrawls.id,
+      name: scheduledCrawls.name,
+      cronExpression: scheduledCrawls.cronExpression,
+      nextRunAt: scheduledCrawls.nextRunAt,
+      isActive: scheduledCrawls.isActive,
+    })
     .from(scheduledCrawls)
     .where(eq(scheduledCrawls.userId, userId))
     .orderBy(desc(scheduledCrawls.createdAt));

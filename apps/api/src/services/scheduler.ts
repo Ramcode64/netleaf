@@ -1,6 +1,6 @@
 import { createRequire } from "module";
 import { randomUUID } from "crypto";
-import { eq, and, lte } from "drizzle-orm";
+import { eq, and, lte, or } from "drizzle-orm";
 import { getDb, schema } from "../db/client.js";
 import { crawlQueue, createJobRecord } from "../queue/jobs.js";
 import type { CrawlOptions } from "../types/index.js";
@@ -45,6 +45,29 @@ async function tick() {
 
     for (const schedule of due) {
       try {
+        // Respect the same per-user active-job cap enforced by the crawl route.
+        // Without this check the scheduler bypasses the cap and can flood the queue.
+        if (schedule.userId) {
+          const active = await db
+            .select({ id: schema.crawlJobs.id })
+            .from(schema.crawlJobs)
+            .where(
+              and(
+                eq(schema.crawlJobs.userId, schedule.userId),
+                or(
+                  eq(schema.crawlJobs.status, "pending"),
+                  eq(schema.crawlJobs.status, "running")
+                )
+              )
+            );
+          if (active.length >= 5) {
+            console.warn(
+              `[scheduler] User ${schedule.userId} has ${active.length} active jobs — skipping "${schedule.name}" this tick`
+            );
+            continue; // nextRunAt unchanged — will retry next tick when a slot opens
+          }
+        }
+
         const jobId = randomUUID();
         const crawlOptions = schedule.options as CrawlOptions;
         await createJobRecord(jobId, crawlOptions, schedule.userId ?? undefined, schedule.apiKeyId ?? undefined);

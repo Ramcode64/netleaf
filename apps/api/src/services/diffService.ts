@@ -50,9 +50,15 @@ export async function diffJobs(options: DiffOptions): Promise<DiffResult | null>
     if (!jobA || !jobB) return null; // caller should treat as 404
   }
 
+  // Select only the columns needed for comparison — markdown can be up to 5 MB
+  // per row; fetching it for two 500-page crawls would pull ~5 GB into heap.
+  const cols = {
+    url: schema.crawlSnapshots.url,
+    contentHash: schema.crawlSnapshots.contentHash,
+  };
   const [snapshotsA, snapshotsB] = await Promise.all([
-    db.select().from(schema.crawlSnapshots).where(eq(schema.crawlSnapshots.jobId, jobIdA)),
-    db.select().from(schema.crawlSnapshots).where(eq(schema.crawlSnapshots.jobId, jobIdB)),
+    db.select(cols).from(schema.crawlSnapshots).where(eq(schema.crawlSnapshots.jobId, jobIdA)),
+    db.select(cols).from(schema.crawlSnapshots).where(eq(schema.crawlSnapshots.jobId, jobIdB)),
   ]);
 
   const mapA = new Map(snapshotsA.map((s) => [s.url, s.contentHash]));

@@ -21,10 +21,13 @@ export const httpUrl = (msg = "must be a valid http(s) URL") =>
 
 /**
  * Checks whether a user-supplied regex pattern is safe to compile and run.
- * Rejects patterns longer than 200 chars and patterns containing nested
- * quantifiers — the primary cause of catastrophic backtracking (ReDoS).
+ * Rejects patterns longer than 200 chars and patterns containing constructs
+ * that cause catastrophic backtracking (ReDoS).
  *
- * Examples of rejected patterns: (a+)+  ([a-z]+)*  (.*){2,}
+ * Blocked patterns (examples):
+ *   Nested quantifiers:    (a+)+   ([a-z]+)*   (.*){2,}
+ *   Alternation + quant:  (a|aa)+  (a|a?)+     ([a-z]+|[a-z]+)*
+ *   Consecutive quants:   a++      a+?
  */
 export function isSafeRegexPattern(pattern: string): boolean {
   if (pattern.length > 200) return false;
@@ -33,6 +36,10 @@ export function isSafeRegexPattern(pattern: string): boolean {
   if (/\([^)]*[+*?]\)\s*[+*?{]/.test(pattern)) return false;
   // Consecutive quantifiers on the same token: a++ or a+?
   if (/[+*?}]\s*[+*?]/.test(pattern)) return false;
+  // Alternation inside a quantified group: (a|aa)+ — alternation creates
+  // overlapping matches that cause catastrophic backtracking even without a
+  // nested quantifier inside the group.
+  if (/\([^)]*\|[^)]*\)\s*[+*?{]/.test(pattern)) return false;
   try {
     new RegExp(pattern);
     return true;

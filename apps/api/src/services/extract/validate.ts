@@ -1,4 +1,5 @@
 import { createRequire } from "module";
+import { isSafeRegexPattern } from "../../security/validators.js";
 
 const require = createRequire(import.meta.url);
 
@@ -44,6 +45,30 @@ function assertSafeSchema(schema: unknown): string | null {
   };
   if (depthOf(schema, 0) > MAX_SCHEMA_DEPTH) {
     return `Schema nesting too deep (max ${MAX_SCHEMA_DEPTH})`;
+  }
+
+  // Validate all `pattern` values to prevent ReDoS. AJV compiles the pattern
+  // into a RegExp and runs it against LLM output during validateData(); a
+  // catastrophic pattern like (a+)+b hangs the event loop at validation time
+  // even though schema compilation itself succeeds.
+  const unsafePattern = findUnsafePattern(schema);
+  if (unsafePattern !== null) {
+    return `Schema contains unsafe regex pattern: ${unsafePattern}`;
+  }
+
+  return null;
+}
+
+function findUnsafePattern(node: unknown): string | null {
+  if (node === null || typeof node !== "object") return null;
+  const obj = node as Record<string, unknown>;
+  for (const [key, val] of Object.entries(obj)) {
+    if (key === "pattern" && typeof val === "string") {
+      if (!isSafeRegexPattern(val)) return val;
+    } else {
+      const inner = findUnsafePattern(val);
+      if (inner !== null) return inner;
+    }
   }
   return null;
 }

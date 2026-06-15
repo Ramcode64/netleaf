@@ -104,6 +104,13 @@ function isBlockedIp(ip: string): boolean {
  * Validate a single URL: scheme allowlist + DNS resolution + IP range check.
  * Returns the parsed URL on success; throws SsrfError otherwise.
  * Does NOT follow redirects — use safeFetch for that.
+ *
+ * DNS-rebinding caveat: there is a TOCTOU window between this check and the
+ * actual TCP connection. An attacker controlling a domain with a low TTL can
+ * resolve to a public IP here, then flip DNS to an internal IP before the
+ * connection is made. Pair this check with network-level egress controls
+ * (container firewall rules blocking outbound to RFC-1918 / link-local).
+ * Do NOT rely on this check alone in multi-tenant deployments.
  */
 export async function assertPublicUrl(rawUrl: string): Promise<URL> {
   let u: URL;

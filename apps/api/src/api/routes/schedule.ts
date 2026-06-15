@@ -38,7 +38,18 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
       if (!validateCronExpression(cronExpression)) {
         return reply.status(400).send({
           success: false,
-          error: `Invalid cron expression: "${cronExpression}"`,
+          error: "Invalid cron expression.",
+        });
+      }
+
+      // Reject sub-5-minute intervals — e.g. "* * * * *" (every 1 min) would let
+      // one user schedule 20 crawl jobs per minute and saturate the queue.
+      const nextA = computeNextRun(cronExpression);
+      const nextB = computeNextRun(cronExpression, nextA);
+      if (nextB.getTime() - nextA.getTime() < 5 * 60 * 1000) {
+        return reply.status(400).send({
+          success: false,
+          error: "Cron interval must be at least 5 minutes between runs.",
         });
       }
 
@@ -48,6 +59,20 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(401).send({ success: false, error: "Authentication required" });
       }
 
+      // Cap schedules per user — unlimited schedules × sub-hourly intervals would
+      // let a single user generate crawl jobs faster than the worker can drain them.
+      const db = getDb();
+      const existing = await db
+        .select({ id: schema.scheduledCrawls.id })
+        .from(schema.scheduledCrawls)
+        .where(eq(schema.scheduledCrawls.userId, userId));
+      if (existing.length >= 20) {
+        return reply.status(400).send({
+          success: false,
+          error: "Maximum of 20 scheduled crawls per user allowed.",
+        });
+      }
+
       const crawlOptions: CrawlOptions = {
         url,
         maxPages,
@@ -55,7 +80,6 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
         ...(webhookUrl ? { webhookUrl } : {}),
       };
 
-      const db = getDb();
       const nextRunAt = computeNextRun(cronExpression);
 
       const [schedule] = await db
@@ -102,6 +126,9 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const req = request as typeof request & { userId?: string };
       const { id } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(id).success) {
+        return reply.status(404).send({ success: false, error: "Schedule not found" });
+      }
 
       if (!req.userId) {
         return reply.status(401).send({ success: false, error: "Authentication required" });
@@ -133,6 +160,9 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const req = request as typeof request & { userId?: string };
       const { id } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(id).success) {
+        return reply.status(404).send({ success: false, error: "Schedule not found" });
+      }
 
       if (!req.userId) {
         return reply.status(401).send({ success: false, error: "Authentication required" });

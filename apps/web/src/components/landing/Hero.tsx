@@ -11,13 +11,16 @@ export function Hero() {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent to-ink-950" />
 
       <div className="relative mx-auto max-w-5xl px-6 text-center">
-        {/* Eyebrow */}
-        <p
-          className="animate-fade-up mb-8 text-xs font-semibold uppercase tracking-[0.2em] text-leaf-400"
+        {/* Eyebrow pill */}
+        <div
+          className="animate-fade-up mb-8 flex items-center justify-center"
           style={{ animationDelay: "0ms" }}
         >
-          Open source &nbsp;·&nbsp; MIT licensed &nbsp;·&nbsp; Free forever
-        </p>
+          <span className="inline-flex items-center gap-2.5 rounded-full border border-leaf-500/25 bg-leaf-950/50 px-4 py-1.5 text-xs font-medium text-leaf-300 backdrop-blur-sm">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-leaf-400" />
+            Open source · MIT licensed · Free forever
+          </span>
+        </div>
 
         {/* Headline — Apple-scale */}
         <h1

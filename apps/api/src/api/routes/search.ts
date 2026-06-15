@@ -4,7 +4,7 @@ import { requireApiKey } from "../middleware/auth.js";
 import { search } from "../../services/searchService.js";
 
 const SearchBodySchema = z.object({
-  query: z.string().min(1, "query must not be empty"),
+  query: z.string().min(1, "query must not be empty").max(500, "query must be at most 500 characters"),
   maxResults: z.number().int().min(1).max(10).optional().default(5),
   scrape: z.boolean().optional().default(true),
   formats: z
@@ -31,13 +31,12 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
         return reply.send({ success: true, data: result });
       } catch (err) {
         const message = err instanceof Error ? err.message : "";
-        // Detect missing API key without leaking the env var name to the caller
-        const isMissingKey = message.includes("BRAVE_API_KEY") || message.includes("not configured");
+        const isMissingKey = message.includes("not configured");
         request.log.error({ err }, "search error");
         return reply.status(isMissingKey ? 400 : 502).send({
           success: false,
           error: isMissingKey
-            ? "Search is not configured. Set BRAVE_API_KEY on the server."
+            ? "Search is not configured on this server."
             : "Search failed. Check server logs for details.",
         });
       }

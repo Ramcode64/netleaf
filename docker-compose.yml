@@ -3,6 +3,9 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16-alpine
+    # SECURITY: set POSTGRES_PASSWORD in your .env file before deploying.
+    # The default 'netleaf_dev' is a known public value — safe only on a
+    # local machine where port 5432 is not exposed to the network.
     environment:
       POSTGRES_USER: netleaf
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-netleaf_dev}

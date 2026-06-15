@@ -3,7 +3,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { requireApiKey } from "../middleware/auth.js";
 import { crawlQueue, createJobRecord, getJob } from "../../queue/jobs.js";
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { getDb, schema } from "../../db/client.js";
 import { httpUrl } from "../../security/validators.js";
 
@@ -13,7 +13,7 @@ const CrawlBody = z.object({
   maxDepth: z.number().min(1).max(10).optional(),
   excludePatterns: z.array(z.string().max(500)).max(50).optional(),
   formats: z.array(z.enum(["markdown", "html", "text"])).optional(),
-  waitForSelector: z.string().optional(),
+  waitForSelector: z.string().max(500).optional(),
   webhookUrl: httpUrl("webhookUrl must be a valid http(s) URL").optional(),
 });
 
@@ -32,6 +32,32 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
 
       const jobId = uuidv4();
       const { webhookUrl, ...crawlOptions } = parsed.data;
+
+      // Prevent a single user from monopolising the BullMQ queue.
+      // Without a cap, an authenticated user can submit 100 jobs/min (the global
+      // rate limit), each crawling up to 500 pages — effectively a resource-exhaustion
+      // DoS that blocks all other users for hours.
+      if (request.userId) {
+        const db = getDb();
+        const active = await db
+          .select({ id: schema.crawlJobs.id })
+          .from(schema.crawlJobs)
+          .where(
+            and(
+              eq(schema.crawlJobs.userId, request.userId),
+              or(
+                eq(schema.crawlJobs.status, "pending"),
+                eq(schema.crawlJobs.status, "running")
+              )
+            )
+          );
+        if (active.length >= 5) {
+          return reply.code(429).send({
+            success: false,
+            error: "Too many active crawl jobs. Wait for existing jobs to complete.",
+          });
+        }
+      }
 
       // webhookUrl is stored atomically in the initial INSERT to avoid a race
       // where a fast worker could complete the job before a separate UPDATE arrives.
@@ -52,6 +78,9 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireApiKey },
     async (request, reply) => {
       const { jobId } = request.params as { jobId: string };
+      if (!z.string().uuid().safeParse(jobId).success) {
+        return reply.code(400).send({ success: false, error: "Invalid job ID" });
+      }
 
       const parsed = z
         .object({ webhookUrl: httpUrl("webhookUrl must be a valid http(s) URL") })
@@ -97,6 +126,9 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireApiKey },
     async (request, reply) => {
       const { jobId } = request.params as { jobId: string };
+      if (!z.string().uuid().safeParse(jobId).success) {
+        return reply.code(400).send({ success: false, error: "Invalid job ID" });
+      }
       const job = await getJob(jobId);
 
       if (!job) {

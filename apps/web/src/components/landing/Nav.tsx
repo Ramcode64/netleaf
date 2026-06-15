@@ -72,12 +72,14 @@ export function Nav() {
         {/* Right CTAs */}
         <div className="flex items-center gap-2">
           <Link href="/login">
-            <Button variant="ghost" size="sm" className="text-ink-300 hover:text-white">
+            <Button variant="ghost" size="sm" className="text-sm text-ink-300 hover:text-white">
               Sign in
             </Button>
           </Link>
           <Link href="/signup">
-            <Button size="sm" className="glow-sm">Get started</Button>
+            <Button size="sm" className="glow-sm rounded-full px-4 text-sm font-semibold">
+              Get started
+            </Button>
           </Link>
         </div>
       </nav>

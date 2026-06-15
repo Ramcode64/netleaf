@@ -4,15 +4,27 @@ function optional(key: string, fallback: string): string {
   return process.env[key] ?? fallback;
 }
 
+// Private/reserved IP ranges that OLLAMA_URL must not point to in production.
+// These are the same ranges blocked by the SSRF guard (security/ssrf.ts).
+// In local dev, Ollama always runs on localhost — this validation is intentionally
+// permissive for the default value (http://localhost:11434) because local usage is
+// the primary use case. The check below blocks only the cloud-metadata range to
+// prevent operator misconfiguration from turning OLLAMA_URL into an SSRF vector
+// when the server is deployed publicly. Full network-level restrictions should be
+// enforced at the infrastructure level (firewall / egress policy).
 function validateOllamaUrl(raw: string): string {
   try {
     const u = new URL(raw);
     if (u.protocol !== "http:" && u.protocol !== "https:") {
       throw new Error(`OLLAMA_URL must be http(s), got: ${u.protocol}`);
     }
-    // Block cloud metadata endpoints regardless of who set the env var
+    // Block link-local / cloud metadata regardless of who set the env var
     if (/^169\.254\./.test(u.hostname)) {
       throw new Error("OLLAMA_URL must not point to a link-local (169.254.x.x) address");
+    }
+    // Block the unspecified address
+    if (u.hostname === "0.0.0.0") {
+      throw new Error("OLLAMA_URL must not point to 0.0.0.0");
     }
     return raw;
   } catch (e) {
