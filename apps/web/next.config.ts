@@ -36,9 +36,12 @@ const securityHeaders = [
   },
 ];
 
+// standalone output is for Docker only — Vercel handles its own output format
+const isVercel = !!process.env.VERCEL;
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "standalone",
+  ...(isVercel ? {} : { output: "standalone" }),
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001",
   },

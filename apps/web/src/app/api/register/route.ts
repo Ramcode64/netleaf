@@ -28,6 +28,10 @@ function isRateLimited(ip: string): boolean {
 }
 
 export async function POST(request: Request) {
+  if (process.env.DISABLE_REGISTRATION === "true") {
+    return NextResponse.json({ error: "Registration is disabled on this instance." }, { status: 403 });
+  }
+
   // Prefer X-Real-IP (set by a trusted reverse proxy) over X-Forwarded-For,
   // which an attacker can forge to cycle rate-limit buckets. Neither is
   // unforgeable without network-level enforcement, but X-Real-IP is harder to
