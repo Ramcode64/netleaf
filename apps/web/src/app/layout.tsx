@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Netleaf — The free, open-source web data platform",
+  title: "Netleaf",
   description:
     "Self-host in one command. No rate limits. Multi-LLM extraction. A free, open-source alternative to Firecrawl.",
   metadataBase: new URL("https://netleaf.org"),
