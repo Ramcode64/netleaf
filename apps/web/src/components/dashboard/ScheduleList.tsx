@@ -18,8 +18,7 @@ export function ScheduleList({ schedules }: { schedules: ScheduleRow[] }) {
   if (schedules.length === 0) {
     return (
       <p className="rounded-xl border border-white/10 py-12 text-center text-sm text-ink-100">
-        No scheduled crawls yet. Create one via{" "}
-        <code className="font-mono text-leaf-300">POST /v1/schedule</code>.
+        No scheduled crawls yet. Click <span className="text-leaf-300">New schedule</span> above to create one.
       </p>
     );
   }

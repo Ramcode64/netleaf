@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
+import { ChevronRight } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getDb, crawlJobs } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
@@ -50,18 +52,38 @@ export default async function CrawlsPage() {
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Pages</th>
                 <th className="px-4 py-3 font-medium">Created</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {jobs.map((job) => (
-                <tr key={job.id} className="border-b border-white/5 last:border-0">
-                  <td className="max-w-xs truncate px-4 py-3 text-white">{job.startUrl}</td>
+                <tr
+                  key={job.id}
+                  className="border-b border-white/5 transition-colors last:border-0 hover:bg-white/[0.02]"
+                >
+                  <td className="max-w-xs truncate px-4 py-3 text-white">
+                    <Link
+                      href={`/dashboard/crawls/${job.id}`}
+                      className="hover:text-leaf-300"
+                    >
+                      {job.startUrl}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">
                     <Badge tone={statusTone[job.status] ?? "muted"}>{job.status}</Badge>
                   </td>
                   <td className="px-4 py-3 text-ink-100">{job.totalScraped}</td>
                   <td className="px-4 py-3 text-ink-100">
                     {new Date(job.createdAt as Date).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link
+                      href={`/dashboard/crawls/${job.id}`}
+                      aria-label="View crawl details"
+                      className="inline-flex text-ink-100/60 transition-colors hover:text-white"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
                   </td>
                 </tr>
               ))}

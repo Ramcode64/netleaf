@@ -57,6 +57,22 @@ export const crawlJobs = pgTable("crawl_jobs", {
   completedAt: timestamp("completed_at", { withTimezone: true }),
 });
 
+export const crawlPages = pgTable("crawl_pages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  jobId: uuid("job_id").notNull(),
+  idx: integer("idx").notNull(),
+  url: text("url").notNull(),
+  success: boolean("success").default(true).notNull(),
+  statusCode: integer("status_code"),
+  title: text("title"),
+  description: text("description"),
+  markdown: text("markdown"),
+  html: text("html"),
+  text: text("text"),
+  error: text("error"),
+  scrapedAt: timestamp("scraped_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const scheduledCrawls = pgTable("scheduled_crawls", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").notNull(),
@@ -81,7 +97,7 @@ export const usageEvents = pgTable("usage_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const schema = { users, apiKeys, crawlJobs, scheduledCrawls, usageEvents };
+export const schema = { users, apiKeys, crawlJobs, crawlPages, scheduledCrawls, usageEvents };
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 

@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { getDb, scheduledCrawls } from "@/lib/db";
 import { ScheduleList, type ScheduleRow } from "@/components/dashboard/ScheduleList";
+import { ScheduleCreateForm } from "@/components/dashboard/ScheduleCreateForm";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +33,13 @@ export default async function SchedulesPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Schedules</h1>
-        <p className="mt-1 text-sm text-ink-100">Recurring crawls running on a cron schedule.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Schedules</h1>
+          <p className="mt-1 text-sm text-ink-100">Recurring crawls running on a cron schedule.</p>
+        </div>
       </div>
+      <ScheduleCreateForm />
       <ScheduleList schedules={schedules} />
     </div>
   );
