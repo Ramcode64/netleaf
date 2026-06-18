@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Leaf, Github } from "lucide-react";
 
@@ -64,6 +66,20 @@ export function Footer() {
                         target="_blank"
                         rel="noreferrer"
                         className="text-xs text-ink-400 transition-colors hover:text-ink-900"
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  ) : item.href.startsWith("#") ? (
+                    <li key={item.label}>
+                      <a
+                        href={item.href}
+                        className="text-xs text-ink-400 transition-colors hover:text-ink-900"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          history.replaceState(null, "", item.href);
+                          document.querySelector(item.href)?.scrollIntoView({ behavior: "smooth" });
+                        }}
                       >
                         {item.label}
                       </a>

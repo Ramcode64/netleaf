@@ -53,6 +53,11 @@ export function Nav() {
                 key={item.label}
                 href={item.href}
                 className="text-sm text-ink-300 transition-colors hover:text-white"
+                onClick={(e) => {
+                  e.preventDefault();
+                  history.replaceState(null, "", item.href);
+                  document.querySelector(item.href)?.scrollIntoView({ behavior: "smooth" });
+                }}
               >
                 {item.label}
               </a>
