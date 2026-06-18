@@ -77,7 +77,6 @@ export const crawlJobs = pgTable(
     status: text("status").notNull().default("pending"),
     startUrl: text("start_url").notNull(),
     options: jsonb("options").notNull(),
-    pages: jsonb("pages").default([]).notNull(),
     totalFound: integer("total_found").default(0).notNull(),
     totalScraped: integer("total_scraped").default(0).notNull(),
     webhookUrl: text("webhook_url"),
@@ -88,6 +87,39 @@ export const crawlJobs = pgTable(
   },
   (table) => ({
     userIdCreatedAtIdx: index("crawl_jobs_user_id_created_at_idx").on(table.userId, table.createdAt),
+    // Hot path: crawl creation + scheduler check both query
+    // WHERE userId=? AND status IN ('pending','running')
+    userIdStatusIdx: index("crawl_jobs_user_id_status_idx").on(table.userId, table.status),
+  })
+);
+
+// Per-page rows for a crawl. Previously these were stored inline as a JSONB
+// column on crawl_jobs — that meant a 500-page crawl rewrote a 2.5 GB row
+// every 5 pages (~250 GB of WAL traffic) and loaded the entire payload into
+// Node on every poll. Splitting into a child table makes per-page writes
+// constant-time and enables pagination on the read side.
+export const crawlPages = pgTable(
+  "crawl_pages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    jobId: uuid("job_id").references(() => crawlJobs.id, { onDelete: "cascade" }).notNull(),
+    idx: integer("idx").notNull(),
+    url: text("url").notNull(),
+    success: boolean("success").default(true).notNull(),
+    statusCode: integer("status_code"),
+    title: text("title"),
+    description: text("description"),
+    markdown: text("markdown"),
+    html: text("html"),
+    text: text("text"),
+    error: text("error"),
+    scrapedAt: timestamp("scraped_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    // Primary access pattern: WHERE job_id=? ORDER BY idx (pagination and export streaming).
+    jobIdxIdx: index("crawl_pages_job_idx_idx").on(table.jobId, table.idx),
+    // Idempotency: prevents accidental double-inserts of the same page on worker retries.
+    jobIdxUnique: uniqueIndex("crawl_pages_job_idx_unique").on(table.jobId, table.idx),
   })
 );
 

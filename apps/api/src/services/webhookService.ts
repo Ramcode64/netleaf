@@ -1,7 +1,6 @@
 import { createHmac } from "crypto";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb, schema } from "../db/client.js";
-import type { ScrapeResult } from "../types/index.js";
 import { safeFetch } from "../security/ssrf.js";
 
 const MAX_ATTEMPTS = 3;
@@ -29,28 +28,49 @@ export interface WebhookPayload {
  * Retries on BOTH network errors and non-2xx responses (up to MAX_ATTEMPTS).
  * Marks `webhookSent = true` on the job only after a 2xx response.
  *
- * `fetchImpl` is injectable for testing.
+ * Page summaries are loaded from crawl_pages (the child table) just-in-time.
+ * For testing, pass an explicit `pages` array via `pagesOverride` to bypass DB
+ * reads. `fetchImpl` is injectable for testing.
  */
 export async function deliverWebhook(
   url: string,
   jobId: string,
-  pages: ScrapeResult[],
+  pagesOverride?: WebhookPageSummary[],
   // Defaults to safeFetch so webhook targets can't point at internal hosts
   // (SSRF). Tests inject their own impl to bypass the network entirely.
   fetchImpl: (url: string, init?: RequestInit) => Promise<Response> = safeFetch
 ): Promise<boolean> {
-  const summaries: WebhookPageSummary[] = pages.map((p) => ({
-    url: p.url,
-    title: p.metadata?.title,
-    success: p.success,
-    error: p.error,
-  }));
+  let summaries: WebhookPageSummary[];
+  if (pagesOverride) {
+    summaries = pagesOverride;
+  } else {
+    const db = getDb();
+    // Stream summaries from crawl_pages. We only need 4 columns — full markdown
+    // would explode the payload. Receivers needing content should poll
+    // GET /v1/crawl/:id/pages?offset=&limit= after the event fires.
+    const rows = await db
+      .select({
+        url: schema.crawlPages.url,
+        title: schema.crawlPages.title,
+        success: schema.crawlPages.success,
+        error: schema.crawlPages.error,
+      })
+      .from(schema.crawlPages)
+      .where(eq(schema.crawlPages.jobId, jobId))
+      .orderBy(asc(schema.crawlPages.idx));
+    summaries = rows.map((r) => ({
+      url: r.url,
+      title: r.title ?? undefined,
+      success: r.success,
+      error: r.error ?? undefined,
+    }));
+  }
 
   const payload: WebhookPayload = {
     jobId,
     status: "completed",
     pages: summaries,
-    totalScraped: pages.length,
+    totalScraped: summaries.length,
   };
   const body = JSON.stringify(payload);
 

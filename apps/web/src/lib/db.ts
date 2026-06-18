@@ -47,7 +47,7 @@ export const crawlJobs = pgTable("crawl_jobs", {
   status: text("status").notNull().default("pending"),
   startUrl: text("start_url").notNull(),
   options: jsonb("options").notNull(),
-  pages: jsonb("pages").default([]).notNull(),
+  // pages JSONB removed in 0001 — per-page rows live in crawl_pages now.
   totalFound: integer("total_found").default(0).notNull(),
   totalScraped: integer("total_scraped").default(0).notNull(),
   webhookUrl: text("webhook_url"),

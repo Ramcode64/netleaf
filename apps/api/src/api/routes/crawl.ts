@@ -3,7 +3,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { requireApiKey } from "../middleware/auth.js";
 import { crawlQueue, createJobRecord, getJob } from "../../queue/jobs.js";
-import { and, eq, or } from "drizzle-orm";
+import { and, asc, eq, or } from "drizzle-orm";
 import { getDb, schema } from "../../db/client.js";
 import { httpUrl } from "../../security/validators.js";
 
@@ -129,16 +129,72 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
       if (!z.string().uuid().safeParse(jobId).success) {
         return reply.code(400).send({ success: false, error: "Invalid job ID" });
       }
-      const job = await getJob(jobId);
 
+      // Pagination on pages — defaults preserve "everything for normal-size
+      // crawls" while letting big crawls stream the payload. Hard cap of 500
+      // matches the maxPages cap on creation, so a single request can always
+      // satisfy a full crawl.
+      const querySchema = z.object({
+        offset: z.coerce.number().int().min(0).default(0),
+        limit: z.coerce.number().int().min(1).max(500).default(100),
+      });
+      const parsedQuery = querySchema.safeParse(request.query);
+      if (!parsedQuery.success) {
+        return reply.code(400).send({
+          success: false,
+          error: parsedQuery.error.issues.map((i) => i.message).join(", "),
+        });
+      }
+      const { offset, limit } = parsedQuery.data;
+
+      const job = await getJob(jobId);
       if (!job) {
         return reply.code(404).send({ success: false, error: "Job not found" });
       }
-
       // Ownership check in authenticated mode
       if (request.userId && job.userId !== request.userId) {
         return reply.code(404).send({ success: false, error: "Job not found" });
       }
+
+      // Stream a slice of crawl_pages. Polling clients should hit
+      // /v1/crawl/:jobId/status to avoid this query while status === "running".
+      const db = getDb();
+      const pages = await db
+        .select({
+          url: schema.crawlPages.url,
+          success: schema.crawlPages.success,
+          statusCode: schema.crawlPages.statusCode,
+          title: schema.crawlPages.title,
+          description: schema.crawlPages.description,
+          markdown: schema.crawlPages.markdown,
+          html: schema.crawlPages.html,
+          text: schema.crawlPages.text,
+          error: schema.crawlPages.error,
+          scrapedAt: schema.crawlPages.scrapedAt,
+        })
+        .from(schema.crawlPages)
+        .where(eq(schema.crawlPages.jobId, jobId))
+        .orderBy(asc(schema.crawlPages.idx))
+        .offset(offset)
+        .limit(limit);
+
+      // Shape rows back into the legacy ScrapeResult format so existing
+      // clients/dashboards/docs don't break. The DB schema is the new
+      // canonical form; this is purely a wire-compat shim.
+      const shaped = pages.map((p) => ({
+        url: p.url,
+        success: p.success,
+        ...(p.markdown !== null && { markdown: p.markdown }),
+        ...(p.html !== null && { html: p.html }),
+        ...(p.text !== null && { text: p.text }),
+        ...(p.error !== null && { error: p.error }),
+        metadata: {
+          ...(p.title !== null && { title: p.title }),
+          ...(p.description !== null && { description: p.description }),
+          ...(p.statusCode !== null && { statusCode: p.statusCode }),
+          scrapedAt: p.scrapedAt.toISOString(),
+        },
+      }));
 
       return reply.send({
         success: true,
@@ -150,17 +206,17 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
           totalFound: job.totalFound,
           createdAt: job.createdAt,
           completedAt: job.completedAt,
-          pages: job.status === "completed" ? job.pages : [],
+          pages: shaped,
+          pagination: { offset, limit, returned: shaped.length },
           error: job.error,
         },
       });
     }
   );
 
-  // Thin status-only endpoint. The full /v1/crawl/:jobId returns the entire
-  // `pages` JSONB on every call — on a 500-page crawl that's 50+ MB of JSON
-  // per poll. Pollers should use this route instead; only fetch the full
-  // payload once status === "completed".
+  // Thin status-only endpoint. The full /v1/crawl/:jobId joins crawl_pages
+  // on every call. Pollers should hit this route to track progress, then
+  // fetch /v1/crawl/:jobId?offset=...&limit=... once status === "completed".
   app.get(
     "/v1/crawl/:jobId/status",
     { preHandler: requireApiKey },

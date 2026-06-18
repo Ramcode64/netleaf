@@ -11,15 +11,10 @@ vi.mock("../db/client.js", () => ({
 }));
 
 import { deliverWebhook } from "./webhookService.js";
-import type { ScrapeResult } from "../types/index.js";
+import type { WebhookPageSummary } from "./webhookService.js";
 
-const PAGES: ScrapeResult[] = [
-  {
-    url: "https://example.com",
-    success: true,
-    markdown: "# Hi",
-    metadata: { statusCode: 200, scrapedAt: new Date().toISOString() },
-  },
+const PAGES: WebhookPageSummary[] = [
+  { url: "https://example.com", title: "Hi", success: true },
 ];
 
 beforeEach(() => {

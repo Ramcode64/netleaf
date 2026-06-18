@@ -1,7 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { createRequire } from "module";
+import { Readable } from "stream";
 import { requireApiKey } from "../middleware/auth.js";
 import { getDb, schema } from "../../db/client.js";
 
@@ -76,30 +77,43 @@ export async function exportRoutes(app: FastifyInstance): Promise<void> {
       const req = request as typeof request & { userId?: string };
       const db = getDb();
 
-      // Build ownership predicate — in local mode userId is undefined, so skip the check
+      // Ownership predicate — in local mode userId is undefined, so skip the check
       const where = req.userId
         ? and(eq(schema.crawlJobs.id, id), eq(schema.crawlJobs.userId, req.userId))
         : eq(schema.crawlJobs.id, id);
 
       const job = await db.query.crawlJobs.findFirst({ where });
-
       if (!job) {
         return reply.status(404).send({ success: false, error: "Crawl job not found" });
       }
 
-      const pages = (job.pages as Array<{ url?: string; title?: string; markdown?: string }>) ?? [];
+      const pages = await db
+        .select({
+          url: schema.crawlPages.url,
+          title: schema.crawlPages.title,
+          markdown: schema.crawlPages.markdown,
+        })
+        .from(schema.crawlPages)
+        .where(eq(schema.crawlPages.jobId, id))
+        .orderBy(asc(schema.crawlPages.idx));
+
+      const cleanedPages = pages.map((p) => ({
+        url: p.url,
+        title: p.title ?? undefined,
+        markdown: p.markdown ?? undefined,
+      }));
 
       const { format } = parsed.data;
 
       if (format === "csv") {
-        const csv = buildCsv(pages);
+        const csv = buildCsv(cleanedPages);
         reply.header("Content-Type", "text/csv");
         reply.header("Content-Disposition", `attachment; filename="crawl-${id}.csv"`);
         return reply.send(csv);
       }
 
       if (format === "xml") {
-        const xml = buildXml(pages, id);
+        const xml = buildXml(cleanedPages, id);
         reply.header("Content-Type", "application/xml");
         reply.header("Content-Disposition", `attachment; filename="crawl-${id}.xml"`);
         return reply.send(xml);
@@ -110,17 +124,20 @@ export async function exportRoutes(app: FastifyInstance): Promise<void> {
       reply.header("Content-Disposition", `attachment; filename="crawl-${id}.zip"`);
 
       const archive = archiver("zip", { zlib: { level: 9 } });
-
       const rawReply = reply.raw;
+      // Abort the archive if the client disconnects mid-stream so we don't
+      // keep building a multi-MB ZIP for nobody.
+      request.raw.on("close", () => {
+        if (rawReply.writableEnded) return;
+        try { (archive as unknown as { abort: () => void }).abort(); } catch { /* ignore */ }
+      });
       archive.pipe(rawReply);
 
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
+      for (let i = 0; i < cleanedPages.length; i++) {
+        const page = cleanedPages[i];
         const filename = `page-${i + 1}.md`;
         const content = `# ${page.title ?? page.url ?? "Untitled"}\n\n**URL:** ${page.url ?? ""}\n\n${page.markdown ?? ""}`;
-        const { Readable } = await import("stream");
-        const stream = Readable.from([content]);
-        archive.append(stream, { name: filename });
+        archive.append(Readable.from([content]), { name: filename });
       }
 
       await archive.finalize();

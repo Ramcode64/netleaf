@@ -66,11 +66,42 @@ export async function createJobRecord(
       status: "pending",
       startUrl: options.url,
       options: options as unknown as Record<string, unknown>,
-      pages: [],
       webhookUrl: webhookUrl ?? null,
     })
     .returning();
   return job;
+}
+
+/**
+ * Persist one scraped page as a row in crawl_pages. ON CONFLICT (job_id, idx)
+ * DO NOTHING makes this idempotent against BullMQ worker retries: the same
+ * page indexed at the same position will not be inserted twice.
+ */
+async function persistPage(
+  jobId: string,
+  idx: number,
+  page: ScrapeResult,
+  requestedFormats: string[]
+): Promise<void> {
+  const db = getDb();
+  const includeHtml = requestedFormats.includes("html");
+  const includeText = requestedFormats.includes("text");
+  await db
+    .insert(schema.crawlPages)
+    .values({
+      jobId,
+      idx,
+      url: page.url,
+      success: page.success,
+      statusCode: page.metadata?.statusCode ?? null,
+      title: page.metadata?.title ?? null,
+      description: page.metadata?.description ?? null,
+      markdown: page.markdown ?? null,
+      html: includeHtml ? page.html ?? null : null,
+      text: includeText ? page.text ?? null : null,
+      error: page.error ?? null,
+    })
+    .onConflictDoNothing({ target: [schema.crawlPages.jobId, schema.crawlPages.idx] });
 }
 
 export function startWorker(): Worker {
@@ -85,26 +116,30 @@ export function startWorker(): Worker {
         .set({ status: "running" })
         .where(eq(schema.crawlJobs.id, jobId));
 
-      const accumulatedPages: ScrapeResult[] = [];
-      let batchCounter = 0;
+      let pageCount = 0;
 
       try {
+        // Engine needs HTML to extract links from each page even if the caller
+        // doesn't want HTML in the final output. We pass `html` to the engine
+        // and let persistPage decide whether to actually store it.
+        const requestedFormats = options.formats ?? ["markdown"];
         const optionsWithHtml: CrawlOptions = {
           ...options,
-          formats: [
-            ...new Set<ScrapeFormat>([...(options.formats ?? ["markdown"]), "html"]),
-          ],
+          formats: [...new Set<ScrapeFormat>([...requestedFormats, "html"])],
         };
 
         let totalDiscovered = 0;
 
         await crawl(optionsWithHtml, async (page, count) => {
-          const cleaned = stripHtmlFromResult(page, options.formats ?? ["markdown"]);
-          accumulatedPages.push(cleaned);
-          batchCounter++;
-          totalDiscovered = count; // count = total links discovered so far by the engine
+          totalDiscovered = count;
 
-          // Snapshot for diff/change detection
+          // Insert one row per page — constant-time write, no read-modify-write
+          // amplification. The unique (job_id, idx) index makes this idempotent
+          // if BullMQ retries the worker.
+          await persistPage(jobId, pageCount, page, requestedFormats);
+          pageCount++;
+
+          // Snapshot for diff/change detection (separate table, separate concern)
           if (page.markdown) {
             const hash = createHash("sha256").update(page.markdown).digest("hex");
             db.insert(schema.crawlSnapshots)
@@ -114,11 +149,12 @@ export function startWorker(): Worker {
               });
           }
 
-          // Batch-write to DB every 5 pages to reduce write amplification
-          if (batchCounter % 5 === 0) {
+          // Update running totals every 5 pages. Cheap because the row is small
+          // now that `pages` is gone.
+          if (pageCount % 5 === 0) {
             await db
               .update(schema.crawlJobs)
-              .set({ pages: accumulatedPages as unknown[], totalScraped: accumulatedPages.length, totalFound: totalDiscovered })
+              .set({ totalScraped: pageCount, totalFound: totalDiscovered })
               .where(eq(schema.crawlJobs.id, jobId));
           }
         });
@@ -127,9 +163,8 @@ export function startWorker(): Worker {
           .update(schema.crawlJobs)
           .set({
             status: "completed",
-            pages: accumulatedPages as unknown[],
             totalFound: totalDiscovered,
-            totalScraped: accumulatedPages.length,
+            totalScraped: pageCount,
             completedAt: new Date(),
           })
           .where(eq(schema.crawlJobs.id, jobId));
@@ -139,7 +174,9 @@ export function startWorker(): Worker {
         // webhook could fire twice for the same crawl.
         const jobRecord = await getJob(jobId);
         if (jobRecord?.webhookUrl && !jobRecord.webhookSent) {
-          deliverWebhook(jobRecord.webhookUrl, jobId, accumulatedPages).catch(() => {});
+          // Webhook payload is now fetched from crawl_pages inside deliverWebhook
+          // (no longer accumulated in memory by the worker).
+          deliverWebhook(jobRecord.webhookUrl, jobId).catch(() => {});
         }
       } catch (err) {
         await db
@@ -156,15 +193,4 @@ export function startWorker(): Worker {
   );
 
   return worker;
-}
-
-function stripHtmlFromResult(
-  result: ScrapeResult,
-  requestedFormats: string[]
-): ScrapeResult {
-  if (!requestedFormats.includes("html")) {
-    const { html: _, ...rest } = result;
-    return rest;
-  }
-  return result;
 }

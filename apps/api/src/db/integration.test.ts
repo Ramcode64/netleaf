@@ -141,7 +141,7 @@ describe("auth path (api_keys hash lookup)", () => {
 });
 
 describe("job store path (crawl_jobs round-trip)", () => {
-  it("creates, updates pages, and reads back a crawl job", async () => {
+  it("creates a crawl job, persists per-page rows, and reads back via child table", async () => {
     const jobId = "11111111-1111-1111-1111-111111111111";
 
     // createJobRecord
@@ -150,7 +150,6 @@ describe("job store path (crawl_jobs round-trip)", () => {
       status: "pending",
       startUrl: "https://example.com",
       options: { url: "https://example.com", maxPages: 10 },
-      pages: [],
     });
 
     // worker: mark running
@@ -159,32 +158,56 @@ describe("job store path (crawl_jobs round-trip)", () => {
       .set({ status: "running" })
       .where(eq(schema.crawlJobs.id, jobId));
 
-    // worker: batch-write pages
-    const pages = [
-      { url: "https://example.com", markdown: "# Home", success: true },
-      { url: "https://example.com/about", markdown: "# About", success: true },
-    ];
+    // worker: persist one row per scraped page (constant-time, idempotent on retry)
+    await db.insert(schema.crawlPages).values([
+      { jobId, idx: 0, url: "https://example.com", markdown: "# Home", success: true },
+      { jobId, idx: 1, url: "https://example.com/about", markdown: "# About", success: true },
+    ]);
+
     await db
       .update(schema.crawlJobs)
-      .set({
-        status: "completed",
-        pages: pages as unknown[],
-        totalFound: 2,
-        totalScraped: 2,
-        completedAt: new Date(),
-      })
+      .set({ status: "completed", totalFound: 2, totalScraped: 2, completedAt: new Date() })
       .where(eq(schema.crawlJobs.id, jobId));
 
-    // getJob
     const job = await db.query.crawlJobs.findFirst({
       where: eq(schema.crawlJobs.id, jobId),
     });
-
     expect(job).toBeDefined();
     expect(job!.status).toBe("completed");
     expect(job!.totalScraped).toBe(2);
-    expect((job!.pages as typeof pages).length).toBe(2);
-    expect((job!.pages as typeof pages)[1].url).toBe("https://example.com/about");
+
+    const pageRows = await db
+      .select({ url: schema.crawlPages.url, markdown: schema.crawlPages.markdown })
+      .from(schema.crawlPages)
+      .where(eq(schema.crawlPages.jobId, jobId));
+    expect(pageRows.length).toBe(2);
+    const urls = pageRows.map((p) => p.url).sort();
+    expect(urls).toEqual(["https://example.com", "https://example.com/about"]);
+  });
+
+  it("rejects duplicate (job_id, idx) inserts — idempotent on worker retry", async () => {
+    const jobId = "44444444-4444-4444-4444-444444444444";
+    await db.insert(schema.crawlJobs).values({
+      id: jobId,
+      status: "running",
+      startUrl: "https://retry.test",
+      options: {},
+    });
+    await db.insert(schema.crawlPages).values({
+      jobId,
+      idx: 0,
+      url: "https://retry.test/page",
+      success: true,
+    });
+    // Same (jobId, idx) — unique constraint → must reject
+    await expect(
+      db.insert(schema.crawlPages).values({
+        jobId,
+        idx: 0,
+        url: "https://retry.test/page",
+        success: true,
+      })
+    ).rejects.toThrow();
   });
 
   it("persists webhook_url and defaults webhook_sent to false", async () => {

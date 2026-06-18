@@ -1,4 +1,4 @@
-import IORedis, { type RedisOptions } from "ioredis";
+import { Redis, type RedisOptions } from "ioredis";
 import type { ConnectionOptions } from "bullmq";
 
 /**
@@ -36,9 +36,9 @@ export function buildRedisConnection(redisUrl: string): ConnectionOptions {
  * registration time). Returns null on bad URLs so test environments without
  * Redis can fall back to the in-memory rate-limit store.
  */
-export function buildRedisClient(redisUrl: string): IORedis | null {
+export function buildRedisClient(redisUrl: string): Redis | null {
   try {
-    return new IORedis(parseRedisUrl(redisUrl));
+    return new Redis(parseRedisUrl(redisUrl));
   } catch {
     return null;
   }
