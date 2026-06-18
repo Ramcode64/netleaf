@@ -44,6 +44,21 @@ async function tick() {
       );
 
     for (const schedule of due) {
+      // Advance nextRunAt FIRST. Skipping a tick is preferable to flooding —
+      // if any step below fails (Redis down, DB hiccup, etc.) the schedule
+      // will still resume on its next cron slot rather than firing every 60s
+      // until the failure clears, which would create orphan pending job rows.
+      const nextRun = computeNextRun(schedule.cronExpression);
+      try {
+        await db
+          .update(schema.scheduledCrawls)
+          .set({ nextRunAt: nextRun })
+          .where(eq(schema.scheduledCrawls.id, schedule.id));
+      } catch (err) {
+        console.error(`[scheduler] Could not advance nextRunAt for "${schedule.name}":`, err);
+        continue;
+      }
+
       try {
         // Respect the same per-user active-job cap enforced by the crawl route.
         // Without this check the scheduler bypasses the cap and can flood the queue.
@@ -62,9 +77,9 @@ async function tick() {
             );
           if (active.length >= 5) {
             console.warn(
-              `[scheduler] User ${schedule.userId} has ${active.length} active jobs — skipping "${schedule.name}" this tick`
+              `[scheduler] User ${schedule.userId} has ${active.length} active jobs — skipping "${schedule.name}" this tick (next: ${nextRun.toISOString()})`
             );
-            continue; // nextRunAt unchanged — will retry next tick when a slot opens
+            continue; // nextRunAt already advanced above — honors cron schedule
           }
         }
 
@@ -73,10 +88,9 @@ async function tick() {
         await createJobRecord(jobId, crawlOptions, schedule.userId ?? undefined, schedule.apiKeyId ?? undefined);
         await crawlQueue.add("crawl", { jobId, options: crawlOptions }, { jobId });
 
-        const nextRun = computeNextRun(schedule.cronExpression);
         await db
           .update(schema.scheduledCrawls)
-          .set({ lastRunAt: now, nextRunAt: nextRun })
+          .set({ lastRunAt: now })
           .where(eq(schema.scheduledCrawls.id, schedule.id));
 
         console.log(`[scheduler] Enqueued job ${jobId} for schedule "${schedule.name}" (next run: ${nextRun.toISOString()})`);

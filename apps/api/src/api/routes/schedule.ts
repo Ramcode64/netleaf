@@ -174,9 +174,34 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const db = getDb();
+
+      // Look up the current schedule so we can decide whether to recompute nextRunAt.
+      // When reactivating a previously-paused schedule, nextRunAt may be in the past
+      // (possibly by days). Without recomputing, the scheduler fires immediately on
+      // the next tick instead of honoring the cron expression.
+      const [current] = await db
+        .select()
+        .from(schema.scheduledCrawls)
+        .where(
+          and(
+            eq(schema.scheduledCrawls.id, id),
+            eq(schema.scheduledCrawls.userId, req.userId)
+          )
+        )
+        .limit(1);
+
+      if (!current) {
+        return reply.status(404).send({ success: false, error: "Schedule not found" });
+      }
+
+      const set: { isActive: boolean; nextRunAt?: Date } = { isActive: parsed.data.isActive };
+      if (parsed.data.isActive && !current.isActive) {
+        set.nextRunAt = computeNextRun(current.cronExpression);
+      }
+
       const updated = await db
         .update(schema.scheduledCrawls)
-        .set({ isActive: parsed.data.isActive })
+        .set(set)
         .where(
           and(
             eq(schema.scheduledCrawls.id, id),

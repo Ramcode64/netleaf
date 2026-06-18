@@ -2,6 +2,30 @@ import * as cheerio from "cheerio";
 import { URL } from "url";
 import { isSafeRegexPattern } from "../security/validators.js";
 
+// Tracking parameters that change per-visit but never identify a unique page.
+// Stripping them prevents the same page being crawled N times because the URL
+// carries a fresh session ID, ad referrer, etc.
+const TRACKING_PARAMS = new Set([
+  "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+  "gclid", "fbclid", "msclkid", "mc_eid", "mc_cid",
+  "ref", "ref_src", "ref_url", "_ga", "_gl",
+]);
+
+function canonicalizeUrl(u: URL): string {
+  // Drop tracking-only params (they don't change page content), then sort the
+  // remaining params so `?a=1&b=2` and `?b=2&a=1` dedupe to the same key.
+  // Pagination/locale/facet params are PRESERVED so crawls find them all.
+  const params = Array.from(u.searchParams.entries())
+    .filter(([k]) => !TRACKING_PARAMS.has(k.toLowerCase()))
+    .sort(([a], [b]) => a.localeCompare(b));
+  u.search = "";
+  for (const [k, v] of params) u.searchParams.append(k, v);
+  u.hash = "";
+  // Strip trailing slash on the path only — preserves query string when present
+  const out = u.toString();
+  return out.endsWith("/") && !out.endsWith("?/") ? out.replace(/\/$/, "") : out;
+}
+
 export function extractLinks(html: string, baseUrl: string): string[] {
   const $ = cheerio.load(html);
   const base = new URL(baseUrl);
@@ -13,16 +37,12 @@ export function extractLinks(html: string, baseUrl: string): string[] {
 
     try {
       const resolved = new URL(href, base);
-      // Only same-host HTTP(S) links, no anchors
+      // Only same-host HTTP(S) links
       if (
         (resolved.protocol === "http:" || resolved.protocol === "https:") &&
-        resolved.hostname === base.hostname &&
-        !resolved.hash
+        resolved.hostname === base.hostname
       ) {
-        // Strip query params for dedup (keep clean URLs)
-        resolved.search = "";
-        resolved.hash = "";
-        links.add(resolved.toString().replace(/\/$/, ""));
+        links.add(canonicalizeUrl(resolved));
       }
     } catch {
       // Invalid URL — skip
@@ -34,9 +54,7 @@ export function extractLinks(html: string, baseUrl: string): string[] {
 
 export function normalizeUrl(url: string): string {
   try {
-    const u = new URL(url);
-    u.hash = "";
-    return u.toString().replace(/\/$/, "");
+    return canonicalizeUrl(new URL(url));
   } catch {
     return url;
   }

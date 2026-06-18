@@ -1,5 +1,5 @@
 import { createHmac } from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "../db/client.js";
 import type { ScrapeResult } from "../types/index.js";
 import { safeFetch } from "../security/ssrf.js";
@@ -94,10 +94,12 @@ export async function deliverWebhook(
 
 async function markSent(jobId: string): Promise<void> {
   const db = getDb();
+  // Conditional update: only flip false→true. Idempotent against concurrent
+  // workers attempting delivery for the same jobId.
   await db
     .update(schema.crawlJobs)
     .set({ webhookSent: true })
-    .where(eq(schema.crawlJobs.id, jobId));
+    .where(and(eq(schema.crawlJobs.id, jobId), eq(schema.crawlJobs.webhookSent, false)));
 }
 
 function sleep(ms: number): Promise<void> {

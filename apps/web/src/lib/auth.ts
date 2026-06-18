@@ -25,6 +25,23 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { getDb, users } from "./db";
 
+// Sentinel hash for constant-time login. When the supplied email matches no row,
+// we still run bcrypt.compare against this hash so the response time is
+// indistinguishable from "email exists, wrong password". Without this an
+// attacker can enumerate registered emails by timing alone (bcrypt cost 12 is
+// ~150–250 ms, the no-user path returns in ~5 ms).
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
+  "netleaf-constant-time-sentinel-do-not-use",
+  12
+);
+
+function normalizeEmail(input: string): string {
+  // Trim, NFKC-normalize (collapses compatibility forms incl. Turkish dotless I),
+  // then lowercase. Used as the rate-limit key so attackers can't bypass via
+  // whitespace padding or Unicode case-folding tricks.
+  return input.trim().normalize("NFKC").toLowerCase();
+}
+
 const providers: NextAuthConfig["providers"] = [
   Credentials({
     name: "Credentials",
@@ -33,12 +50,18 @@ const providers: NextAuthConfig["providers"] = [
       password: { label: "Password", type: "password" },
     },
     async authorize(credentials) {
-      const email = credentials?.email as string | undefined;
+      const rawEmail = credentials?.email as string | undefined;
       const password = credentials?.password as string | undefined;
-      if (!email || !password) return null;
+      if (!rawEmail || !password) return null;
       // Mirror the length caps enforced at registration to prevent oversized
       // strings from bloating the in-process rate-limit map or the DB query.
-      if (email.length > 254 || password.length > 128) return null;
+      if (rawEmail.length > 254 || password.length > 128) return null;
+
+      // Use the normalized form for BOTH the rate-limit key and the DB lookup.
+      // Without normalization an attacker bypasses per-email lockout by
+      // submitting `victim@example.com `, `victim@example.com\t`, mixed
+      // case, etc. — each variation is a distinct bucket.
+      const email = normalizeEmail(rawEmail);
 
       // In-process login rate limit: 10 attempts per email per 15 minutes.
       // Limitation: resets on server restart and is not shared across processes
@@ -52,7 +75,6 @@ const providers: NextAuthConfig["providers"] = [
       if (!g._loginAttempts) g._loginAttempts = new Map<string, LoginEntry>();
       const loginMap = g._loginAttempts as Map<string, LoginEntry>;
 
-      const key = email.toLowerCase();
       const now = Date.now();
 
       // Evict expired entries to prevent unbounded map growth (memory leak)
@@ -62,17 +84,24 @@ const providers: NextAuthConfig["providers"] = [
         }
       }
 
-      const entry = loginMap.get(key);
+      const entry = loginMap.get(email);
       if (entry && now < entry.resetAt) {
         entry.count++;
         if (entry.count > LOGIN_MAX) return null;
       } else {
-        loginMap.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+        loginMap.set(email, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
       }
 
       const db = getDb();
       const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      if (!user?.passwordHash) return null;
+
+      if (!user?.passwordHash) {
+        // Run a dummy bcrypt compare to equalize response time with the
+        // "wrong password" path. Without this an attacker times the response
+        // to learn whether an email is registered (cf. SOC2 / OWASP ASVS 2.10).
+        await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+        return null;
+      }
 
       const ok = await bcrypt.compare(password, user.passwordHash);
       if (!ok) return null;

@@ -15,9 +15,19 @@ const RegisterSchema = z.object({
 const attempts = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
+const MAX_MAP_SIZE = 10_000;
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
+
+  // Evict expired entries when the map is large to prevent unbounded growth
+  // (an attacker rotating IPv6 /64 addresses can otherwise grow it forever).
+  if (attempts.size > MAX_MAP_SIZE) {
+    for (const [k, v] of attempts) {
+      if (now > v.resetAt) attempts.delete(k);
+    }
+  }
+
   const entry = attempts.get(ip);
   if (!entry || now > entry.resetAt) {
     attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
@@ -25,6 +35,10 @@ function isRateLimited(ip: string): boolean {
   }
   entry.count++;
   return entry.count > MAX_ATTEMPTS;
+}
+
+function normalizeEmail(input: string): string {
+  return input.trim().normalize("NFKC").toLowerCase();
 }
 
 export async function POST(request: Request) {
@@ -63,7 +77,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const { email, password, name } = parsed.data;
+  const { password, name } = parsed.data;
+  // Normalize stored email so login lookup (which also normalizes) finds the
+  // row regardless of input casing/whitespace. Prevents duplicate accounts
+  // for `User@Example.com` vs `user@example.com`.
+  const email = normalizeEmail(parsed.data.email);
   const db = getDb();
 
   const passwordHash = await bcrypt.hash(password, 12);

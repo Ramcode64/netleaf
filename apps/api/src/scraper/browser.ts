@@ -54,37 +54,40 @@ class BrowserPool {
   async withFreshContext<T>(fn: (page: Page) => Promise<T>): Promise<T> {
     await this.acquireSlot();
 
-    const ctx = await this.browser!.newContext({
-      userAgent: "Mozilla/5.0 (compatible; Netleaf/1.0; +https://netleaf.org/bot)",
-      viewport: { width: 1280, height: 720 },
-      javaScriptEnabled: true,
-    });
-
-    const page = await ctx.newPage();
-
-    // SSRF guard: validate every top-level navigation (incl. redirect hops) so a
-    // public URL cannot redirect into cloud metadata / internal hosts, and block
-    // non-http(s) schemes (file://, etc). Subresources are not returned to the
-    // caller, so we only gate navigation requests.
-    await page.route("**/*", async (route) => {
-      const req = route.request();
-      if (!req.isNavigationRequest()) {
-        return route.continue();
-      }
-      try {
-        await assertPublicUrl(req.url());
-        await route.continue();
-      } catch {
-        await route.abort("blockedbyclient");
-      }
-    });
-
+    // Outer try/finally guarantees releaseSlot() even if newContext() / newPage()
+    // throws (Chromium crash, OOM, FD exhaustion). Without this, a single failure
+    // permanently consumes a pool slot and N failures deadlock the pool.
     try {
-      return await fn(page);
+      const ctx = await this.browser!.newContext({
+        userAgent: "Mozilla/5.0 (compatible; Netleaf/1.0; +https://netleaf.org/bot)",
+        viewport: { width: 1280, height: 720 },
+        javaScriptEnabled: true,
+      });
+
+      try {
+        const page = await ctx.newPage();
+
+        // SSRF guard: validate EVERY request — navigations AND subresources.
+        // Subresource validation matters because an attacker-controlled page can
+        // load <img src="http://169.254.169.254/..."> which would otherwise probe
+        // internal services from inside the container. Non-http(s) schemes are
+        // also rejected here.
+        await page.route("**/*", async (route) => {
+          try {
+            await assertPublicUrl(route.request().url());
+            await route.continue();
+          } catch {
+            await route.abort("blockedbyclient");
+          }
+        });
+
+        return await fn(page);
+      } finally {
+        // Closing the context (not just the page) destroys all state — cookies,
+        // service workers, localStorage, IndexedDB, cache — guaranteeing isolation.
+        await ctx.close();
+      }
     } finally {
-      // Closing the context (not just the page) destroys all state — cookies,
-      // service workers, localStorage, IndexedDB, cache — guaranteeing isolation.
-      await ctx.close();
       this.releaseSlot();
     }
   }

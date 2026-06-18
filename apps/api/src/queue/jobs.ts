@@ -107,9 +107,11 @@ export function startWorker(): Worker {
           })
           .where(eq(schema.crawlJobs.id, jobId));
 
-        // Fire webhook if configured (fire-and-forget; handles its own retries)
+        // Fire webhook if configured AND not already sent. BullMQ may retry this
+        // worker on transient failure; without the webhookSent guard a successful
+        // webhook could fire twice for the same crawl.
         const jobRecord = await getJob(jobId);
-        if (jobRecord?.webhookUrl) {
+        if (jobRecord?.webhookUrl && !jobRecord.webhookSent) {
           deliverWebhook(jobRecord.webhookUrl, jobId, accumulatedPages).catch(() => {});
         }
       } catch (err) {

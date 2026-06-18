@@ -3,12 +3,11 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16-alpine
-    # SECURITY: set POSTGRES_PASSWORD in your .env file before deploying.
-    # The default 'netleaf_dev' is a known public value — safe only on a
-    # local machine where port 5432 is not exposed to the network.
+    # SECURITY: POSTGRES_PASSWORD has no default. `docker compose up` will fail
+    # until you set it in .env. Generate with: openssl rand -base64 32
     environment:
       POSTGRES_USER: netleaf
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-netleaf_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in .env (generate: openssl rand -base64 32)}
       POSTGRES_DB: netleaf
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -35,7 +34,7 @@ services:
       dockerfile: Dockerfile
     command: ["node", "dist/db/migrate.js"]
     environment:
-      DATABASE_URL: postgresql://netleaf:${POSTGRES_PASSWORD:-netleaf_dev}@postgres:5432/netleaf
+      DATABASE_URL: postgresql://netleaf:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in .env (generate: openssl rand -base64 32)}@postgres:5432/netleaf
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,7 +51,7 @@ services:
       PORT: 3000
       LOCAL_MODE: ${LOCAL_MODE:-false}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      DATABASE_URL: postgresql://netleaf:${POSTGRES_PASSWORD:-netleaf_dev}@postgres:5432/netleaf
+      DATABASE_URL: postgresql://netleaf:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in .env (generate: openssl rand -base64 32)}@postgres:5432/netleaf
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -80,11 +79,11 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://netleaf:${POSTGRES_PASSWORD:-netleaf_dev}@postgres:5432/netleaf
-      # Auth.js v5: AUTH_SECRET + trust the proxy host
-      # WARNING: Replace this default before any production or shared deployment.
-      # Generate a strong secret: openssl rand -base64 32
-      AUTH_SECRET: ${AUTH_SECRET:-CHANGE_ME_generate_with_openssl_rand_base64_32}
+      DATABASE_URL: postgresql://netleaf:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in .env (generate: openssl rand -base64 32)}@postgres:5432/netleaf
+      # Auth.js v5: AUTH_SECRET + trust the proxy host.
+      # No default — startup fails if AUTH_SECRET is unset. Generate with:
+      #   openssl rand -base64 32
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required — generate with: openssl rand -base64 32}
       AUTH_TRUST_HOST: "true"
       AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
