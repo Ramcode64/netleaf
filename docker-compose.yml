@@ -30,8 +30,8 @@ services:
 
   migrate:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
     command: ["node", "dist/db/migrate.js"]
     environment:
       DATABASE_URL: postgresql://netleaf:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in .env (generate: openssl rand -base64 32)}@postgres:5432/netleaf
@@ -42,8 +42,8 @@ services:
 
   api:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
     ports:
       - "3000:3000"
     environment:

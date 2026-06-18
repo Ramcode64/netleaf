@@ -14,6 +14,7 @@ import { diffRoutes } from "./routes/diff.js";
 import { scheduleRoutes } from "./routes/schedule.js";
 import { exportRoutes } from "./routes/export.js";
 import { trackUsage } from "./middleware/usage.js";
+import { buildRedisClient } from "../queue/redis.js";
 
 export async function buildServer() {
   const app = Fastify({
@@ -38,9 +39,17 @@ export async function buildServer() {
     : false;
   await app.register(cors, { origin: corsOrigin });
 
+  // Use Redis as the shared store so multiple API replicas enforce one global
+  // counter per key. With the default in-memory store, N replicas multiply
+  // the effective limit by N (and DoS protection scales with luck, not config).
+  // In test environments without a reachable Redis, we silently fall back to
+  // the in-memory store — single-process correctness is preserved.
+  const rateLimitRedis = config.env === "test" ? null : buildRedisClient(config.redisUrl);
+
   await app.register(rateLimit, {
     max: config.localMode ? 10000 : 100,
     timeWindow: "1 minute",
+    ...(rateLimitRedis ? { redis: rateLimitRedis, nameSpace: "rl:" } : {}),
     // @fastify/rate-limit runs as an onRequest hook — BEFORE the requireApiKey
     // preHandler — so req.userId is not set yet. Key on the bearer token's hash
     // (available immediately from headers) so per-key limiting actually works;

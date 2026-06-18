@@ -1,5 +1,5 @@
 import { Queue, Worker, Job } from "bullmq";
-import { eq } from "drizzle-orm";
+import { eq, and, lt, or } from "drizzle-orm";
 import { config } from "../config/index.js";
 import { crawl } from "../crawler/engine.js";
 import { CrawlOptions, ScrapeFormat, ScrapeResult } from "../types/index.js";
@@ -20,6 +20,33 @@ export async function getJob(id: string) {
   return db.query.crawlJobs.findFirst({
     where: eq(schema.crawlJobs.id, id),
   });
+}
+
+/**
+ * Mark stale `running` and `pending` crawl jobs as failed. Called at startup
+ * to clean up zombies from previous deploys where SIGTERM didn't let the worker
+ * drain. A job stuck in `running` for >2 hours can only mean the worker died.
+ */
+export async function reapZombieJobs(): Promise<void> {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  const reaped = await db
+    .update(schema.crawlJobs)
+    .set({
+      status: "failed",
+      error: "Worker restarted before this job completed",
+      completedAt: new Date(),
+    })
+    .where(
+      and(
+        or(eq(schema.crawlJobs.status, "running"), eq(schema.crawlJobs.status, "pending")),
+        lt(schema.crawlJobs.createdAt, cutoff)
+      )
+    )
+    .returning({ id: schema.crawlJobs.id });
+  if (reaped.length > 0) {
+    console.log(`[reaper] Marked ${reaped.length} zombie crawl jobs as failed.`);
+  }
 }
 
 export async function createJobRecord(

@@ -156,4 +156,55 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
       });
     }
   );
+
+  // Thin status-only endpoint. The full /v1/crawl/:jobId returns the entire
+  // `pages` JSONB on every call — on a 500-page crawl that's 50+ MB of JSON
+  // per poll. Pollers should use this route instead; only fetch the full
+  // payload once status === "completed".
+  app.get(
+    "/v1/crawl/:jobId/status",
+    { preHandler: requireApiKey },
+    async (request, reply) => {
+      const { jobId } = request.params as { jobId: string };
+      if (!z.string().uuid().safeParse(jobId).success) {
+        return reply.code(400).send({ success: false, error: "Invalid job ID" });
+      }
+
+      const db = getDb();
+      const [job] = await db
+        .select({
+          id: schema.crawlJobs.id,
+          userId: schema.crawlJobs.userId,
+          status: schema.crawlJobs.status,
+          totalScraped: schema.crawlJobs.totalScraped,
+          totalFound: schema.crawlJobs.totalFound,
+          createdAt: schema.crawlJobs.createdAt,
+          completedAt: schema.crawlJobs.completedAt,
+          error: schema.crawlJobs.error,
+        })
+        .from(schema.crawlJobs)
+        .where(eq(schema.crawlJobs.id, jobId))
+        .limit(1);
+
+      if (!job) {
+        return reply.code(404).send({ success: false, error: "Job not found" });
+      }
+      if (request.userId && job.userId !== request.userId) {
+        return reply.code(404).send({ success: false, error: "Job not found" });
+      }
+
+      return reply.send({
+        success: true,
+        data: {
+          id: job.id,
+          status: job.status,
+          totalScraped: job.totalScraped,
+          totalFound: job.totalFound,
+          createdAt: job.createdAt,
+          completedAt: job.completedAt,
+          error: job.error,
+        },
+      });
+    }
+  );
 }

@@ -1,5 +1,6 @@
 import { config } from "../../../config/index.js";
 import { ExtractProvider, ProviderInput } from "./types.js";
+import { buildSandwichedPrompt, parseProviderJson } from "./prompt.js";
 
 export class OllamaProvider implements ExtractProvider {
   readonly name = "ollama" as const;
@@ -12,18 +13,15 @@ export class OllamaProvider implements ExtractProvider {
   async extract(input: ProviderInput): Promise<unknown> {
     const model = process.env.OLLAMA_MODEL ?? "llama3.1";
     const url = `${config.ollamaUrl}/api/chat`;
+    const { system, user } = buildSandwichedPrompt(input);
 
-    const systemPrompt = [
-      "You are a structured data extraction assistant.",
-      "Extract information from the provided web page content.",
-      `You MUST return valid JSON that conforms to this schema:\n${JSON.stringify(input.jsonSchema, null, 2)}`,
-      input.instructions ? `Instructions: ${input.instructions}` : "",
-      input.repairContext
-        ? `Previous attempt failed validation. Errors:\n${input.repairContext}\nReturn corrected JSON only.`
-        : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    // Ollama can't enforce a strict JSON Schema like Claude/OpenAI, so we append
+    // the schema to the system prompt as a soft contract. The schema is from
+    // the trusted API caller, not the scraped page, so it's safe to include.
+    const ollamaSystem =
+      system +
+      "\n\nReturn valid JSON conforming to this schema:\n" +
+      JSON.stringify(input.jsonSchema, null, 2);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 60_000);
@@ -39,11 +37,8 @@ export class OllamaProvider implements ExtractProvider {
           format: "json",
           stream: false,
           messages: [
-            { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: `Extract structured data from this web page content:\n\n${input.content}`,
-            },
+            { role: "system", content: ollamaSystem },
+            { role: "user", content: user },
           ],
         }),
       });
@@ -60,6 +55,6 @@ export class OllamaProvider implements ExtractProvider {
     const text = data?.message?.content;
     if (!text) throw new Error("Ollama returned empty content");
 
-    return JSON.parse(text);
+    return parseProviderJson("ollama", text);
   }
 }

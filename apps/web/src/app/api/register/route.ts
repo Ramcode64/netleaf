@@ -41,19 +41,42 @@ function normalizeEmail(input: string): string {
   return input.trim().normalize("NFKC").toLowerCase();
 }
 
+// TRUSTED_PROXY_IPS is a comma-separated list of proxy IPs whose forwarded
+// headers we believe (e.g. "10.0.0.1,10.0.0.2"). When empty, we trust the
+// platform: Vercel and Railway both terminate at their edge and set
+// x-forwarded-for/x-real-ip themselves before the request reaches us.
+function trustsForwardedHeaders(): boolean {
+  // On Vercel and Railway the platform itself is the trusted proxy.
+  if (process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT) return true;
+  // Self-hosted: require explicit opt-in. Without this, an attacker who can
+  // reach the Node process directly (port forwarded, container exposed) can
+  // forge x-forwarded-for to cycle rate-limit buckets.
+  return !!process.env.TRUSTED_PROXY_IPS;
+}
+
+function clientIp(request: Request): string {
+  if (!trustsForwardedHeaders()) {
+    // No trusted proxy declared — fall back to a single bucket so abuse from
+    // any source still throttles globally. This is intentionally conservative
+    // (false positives on shared networks) because the alternative — trusting
+    // forged headers — is worse.
+    return "untrusted-proxy";
+  }
+  // Trust the LEFTMOST entry of x-forwarded-for (the original client), or
+  // x-real-ip. Both are set by the trusted proxy. Drop any whitespace.
+  const xff = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (xff) return xff;
+  const real = request.headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  return "unknown";
+}
+
 export async function POST(request: Request) {
   if (process.env.DISABLE_REGISTRATION === "true") {
     return NextResponse.json({ error: "Registration is disabled on this instance." }, { status: 403 });
   }
 
-  // Prefer X-Real-IP (set by a trusted reverse proxy) over X-Forwarded-For,
-  // which an attacker can forge to cycle rate-limit buckets. Neither is
-  // unforgeable without network-level enforcement, but X-Real-IP is harder to
-  // spoof because most proxies only set it once (unlike XFF which appends).
-  const ip =
-    request.headers.get("x-real-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    "unknown";
+  const ip = clientIp(request);
 
   if (isRateLimited(ip)) {
     return NextResponse.json(

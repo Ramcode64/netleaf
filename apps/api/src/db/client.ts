@@ -15,4 +15,16 @@ export function getDb() {
   return _db as ReturnType<typeof drizzle<typeof schema>>;
 }
 
+/**
+ * Raw postgres-js client for operations Drizzle doesn't expose (advisory locks,
+ * LISTEN/NOTIFY, etc). Reuses the same pool as getDb().
+ */
+export function getSql(): ReturnType<typeof postgres> {
+  if (!_sql) {
+    // Force pool initialization via getDb()
+    getDb();
+  }
+  return _sql!;
+}
+
 export { schema };

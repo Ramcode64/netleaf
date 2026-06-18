@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config } from "../../../config/index.js";
 import { ExtractProvider, ProviderInput } from "./types.js";
+import { buildSandwichedPrompt } from "./prompt.js";
 
 export class ClaudeProvider implements ExtractProvider {
   readonly name = "claude" as const;
@@ -20,22 +21,12 @@ export class ClaudeProvider implements ExtractProvider {
   async extract(input: ProviderInput): Promise<unknown> {
     const client = this.getClient();
     const model = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
-
-    const systemPrompt = [
-      "You are a structured data extraction assistant.",
-      "Extract information from the provided web page content.",
-      input.instructions ? `Instructions: ${input.instructions}` : "",
-      input.repairContext
-        ? `Previous attempt failed validation. Errors:\n${input.repairContext}\nReturn corrected JSON only.`
-        : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const { system, user } = buildSandwichedPrompt(input);
 
     const response = await client.messages.create({
       model,
       max_tokens: 4096,
-      system: systemPrompt,
+      system,
       tools: [
         {
           name: "extract_data",
@@ -44,12 +35,7 @@ export class ClaudeProvider implements ExtractProvider {
         },
       ],
       tool_choice: { type: "tool", name: "extract_data" },
-      messages: [
-        {
-          role: "user",
-          content: `Extract structured data from this web page content:\n\n${input.content}`,
-        },
-      ],
+      messages: [{ role: "user", content: user }],
     });
 
     const toolUse = response.content.find((b) => b.type === "tool_use");

@@ -1,5 +1,5 @@
 import { pool } from "./scraper/browser.js";
-import { startWorker } from "./queue/jobs.js";
+import { startWorker, reapZombieJobs } from "./queue/jobs.js";
 import { buildServer } from "./api/server.js";
 import { config } from "./config/index.js";
 import { seedLegacyKeys } from "./db/seed.js";
@@ -23,6 +23,14 @@ async function main() {
     await seedLegacyKeys().catch((err) =>
       console.warn("Legacy key migration skipped:", err.message)
     );
+
+    // Mark crawl jobs left in `running` for more than 2 hours as failed.
+    // These are zombies from previous deploys where SIGTERM didn't let the
+    // worker drain in-flight crawls. Without this they show as "running"
+    // forever in the dashboard.
+    await reapZombieJobs().catch((err) =>
+      console.warn("Zombie job reaper failed:", err.message)
+    );
   }
 
   console.log("Starting browser pool...");
@@ -43,11 +51,26 @@ async function main() {
     console.log("Local mode: auth disabled — no API key required");
   }
 
+  let shuttingDown = false;
   const shutdown = async () => {
-    console.log("Shutting down...");
+    if (shuttingDown) return; // Second SIGTERM during drain → ignore
+    shuttingDown = true;
+    console.log("Shutting down — draining worker (up to 60s for in-flight crawls)...");
     stopScheduler();
     await app.close();
-    await worker.close();
+    // worker.close() without force=true waits for currently-running jobs to
+    // finish before closing. Combined with the zombie reaper at startup,
+    // this prevents crawl_jobs rows being stuck in `running` status after
+    // a deploy/restart.
+    try {
+      await Promise.race([
+        worker.close(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("drain timeout")), 60_000)),
+      ]);
+    } catch (err) {
+      console.warn("Worker drain timed out — forcing close:", err instanceof Error ? err.message : err);
+      await worker.close(true);
+    }
     await pool.close();
     process.exit(0);
   };

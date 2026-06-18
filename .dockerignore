@@ -1,0 +1,32 @@
+# Don't ship build artifacts, dev state, or VCS metadata into the image.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/.vitest
+**/.cache
+
+# VCS / editor
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+
+# Local env files — must be provided at runtime, never baked into the image.
+.env
+.env.*
+!.env.example
+vercel.env
+railway.env
+
+# Docker / CI artifacts
+**/*.log
+.DS_Store
+
+# Docs / READMEs aren't needed in the runtime image
+README.md
+CONTRIBUTING.md
+LICENSE
+docs/

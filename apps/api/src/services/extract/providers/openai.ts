@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { config } from "../../../config/index.js";
 import { ExtractProvider, ProviderInput } from "./types.js";
+import { buildSandwichedPrompt, parseProviderJson } from "./prompt.js";
 
 export class OpenAIProvider implements ExtractProvider {
   readonly name = "openai" as const;
@@ -20,25 +21,11 @@ export class OpenAIProvider implements ExtractProvider {
   async extract(input: ProviderInput): Promise<unknown> {
     const client = this.getClient();
     const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+    const { system, user } = buildSandwichedPrompt(input);
 
     const messages: OpenAI.ChatCompletionMessageParam[] = [
-      {
-        role: "system",
-        content: [
-          "You are a structured data extraction assistant.",
-          "Extract information from the provided web page content.",
-          input.instructions ? `Instructions: ${input.instructions}` : "",
-          input.repairContext
-            ? `Previous attempt failed validation. Errors:\n${input.repairContext}\nReturn corrected JSON only.`
-            : "",
-        ]
-          .filter(Boolean)
-          .join("\n"),
-      },
-      {
-        role: "user",
-        content: `Extract structured data from this web page content:\n\n${input.content}`,
-      },
+      { role: "system", content: system },
+      { role: "user", content: user },
     ];
 
     const response = await client.chat.completions.create({
@@ -57,6 +44,6 @@ export class OpenAIProvider implements ExtractProvider {
     const text = response.choices[0]?.message?.content;
     if (!text) throw new Error("OpenAI returned empty content");
 
-    return JSON.parse(text);
+    return parseProviderJson("openai", text);
   }
 }
