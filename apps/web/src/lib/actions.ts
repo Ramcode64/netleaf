@@ -20,6 +20,23 @@ function computeNextRun(cronExpression: string, after = new Date()): Date {
   return interval.next().toDate();
 }
 
+/**
+ * Mirrors the API-side check at apps/api/src/api/routes/schedule.ts:46-54.
+ * Rejecting sub-5-minute intervals prevents a single user from scheduling
+ * 20+ crawl jobs/minute and saturating BullMQ. The API enforces this
+ * independently; this client-side guard catches it earlier with a clearer
+ * message so dashboard users don't round-trip through the 400.
+ */
+function hasMinFiveMinuteInterval(cronExpression: string): boolean {
+  try {
+    const a = computeNextRun(cronExpression);
+    const b = computeNextRun(cronExpression, a);
+    return b.getTime() - a.getTime() >= 5 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
 const uuidSchema = z.string().uuid();
 
 async function requireUserId(): Promise<string> {
@@ -134,6 +151,13 @@ export async function createSchedule(
     return {
       ok: false,
       error: "Invalid cron expression. Try `0 8 * * *` (8am daily) or use crontab.guru.",
+    };
+  }
+
+  if (!hasMinFiveMinuteInterval(cronExpression)) {
+    return {
+      ok: false,
+      error: "Cron interval must be at least 5 minutes between runs (e.g. `*/5 * * * *`).",
     };
   }
 

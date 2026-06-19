@@ -71,10 +71,15 @@ export async function keysRoutes(app: FastifyInstance): Promise<void> {
     "/v1/keys",
     { preHandler: requireApiKey },
     async (request, reply) => {
-      // E-13: LOCAL_MODE has no real keys; return empty list consistently
-      // with POST/DELETE returning "disabled".
+      // E2-4: in LOCAL_MODE all three (GET / POST / DELETE) return the same
+      // disabled envelope. Returning {data:[]} from GET while POST/DELETE
+      // reject is inconsistent — external clients can't tell whether keys
+      // are unsupported or just not yet created.
       if (process.env.LOCAL_MODE === "true") {
-        return reply.send({ success: true, data: [] });
+        return reply.code(400).send({
+          success: false,
+          error: "API key management is disabled in local mode",
+        });
       }
       const userId = request.userId;
       if (!userId) {

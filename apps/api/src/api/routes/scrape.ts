@@ -4,6 +4,7 @@ import { requireApiKey } from "../middleware/auth.js";
 import { withPage } from "../../scraper/browser.js";
 import { scrapePage } from "../../scraper/extract.js";
 import { httpUrl } from "../../security/validators.js";
+import { formatZodError } from "../zod-format.js";
 
 const ScrapeBody = z.object({
   url: httpUrl(),
@@ -21,7 +22,7 @@ export async function scrapeRoutes(app: FastifyInstance): Promise<void> {
       if (!parsed.success) {
         return reply.code(400).send({
           success: false,
-          error: parsed.error.issues.map((i) => i.message).join(", "),
+          error: formatZodError(parsed.error),
         });
       }
 

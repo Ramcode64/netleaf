@@ -6,6 +6,7 @@ import { getDb, schema } from "../../db/client.js";
 import { validateCronExpression, computeNextRun } from "../../services/scheduler.js";
 import type { CrawlOptions } from "../../types/index.js";
 import { httpUrl } from "../../security/validators.js";
+import { formatZodError } from "../zod-format.js";
 
 const CreateScheduleSchema = z.object({
   name: z.string().min(1).max(100),
@@ -29,7 +30,7 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
       if (!parsed.success) {
         return reply.status(400).send({
           success: false,
-          error: parsed.error.issues.map((i) => i.message).join(", "),
+          error: formatZodError(parsed.error),
         });
       }
 

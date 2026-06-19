@@ -5,6 +5,7 @@ import { createRequire } from "module";
 import { Readable } from "stream";
 import { requireApiKey } from "../middleware/auth.js";
 import { getDb, schema } from "../../db/client.js";
+import { formatZodError } from "../zod-format.js";
 
 const require = createRequire(import.meta.url);
 const archiver = require("archiver") as (format: string, opts?: object) => {
@@ -70,7 +71,7 @@ export async function exportRoutes(app: FastifyInstance): Promise<void> {
       if (!parsed.success) {
         return reply.status(400).send({
           success: false,
-          error: parsed.error.issues.map((i) => i.message).join(", "),
+          error: formatZodError(parsed.error),
         });
       }
 

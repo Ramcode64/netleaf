@@ -6,6 +6,7 @@ import { crawlQueue, createJobRecord, getJob } from "../../queue/jobs.js";
 import { and, asc, eq, or } from "drizzle-orm";
 import { getDb, schema } from "../../db/client.js";
 import { httpUrl } from "../../security/validators.js";
+import { formatZodError } from "../zod-format.js";
 
 const CrawlBody = z.object({
   url: httpUrl(),
@@ -26,7 +27,7 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
       if (!parsed.success) {
         return reply.code(400).send({
           success: false,
-          error: parsed.error.issues.map((i) => i.message).join(", "),
+          error: formatZodError(parsed.error),
         });
       }
 
@@ -88,7 +89,7 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
       if (!parsed.success) {
         return reply.code(400).send({
           success: false,
-          error: parsed.error.issues.map((i) => i.message).join(", "),
+          error: formatZodError(parsed.error),
         });
       }
 
@@ -142,7 +143,7 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
       if (!parsedQuery.success) {
         return reply.code(400).send({
           success: false,
-          error: parsedQuery.error.issues.map((i) => i.message).join(", "),
+          error: formatZodError(parsedQuery.error),
         });
       }
       const { offset, limit } = parsedQuery.data;

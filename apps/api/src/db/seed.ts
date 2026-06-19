@@ -1,6 +1,27 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash } from "crypto";
 import { config } from "../config/index.js";
 import { getDb, schema } from "./client.js";
+import { LOCAL_USER_ID } from "../api/middleware/auth.js";
+
+/**
+ * Idempotently seed the nil-UUID virtual user that LOCAL_MODE assigns to
+ * every request. Without this row, every crawl_jobs / scheduled_crawls
+ * INSERT trips the FK constraint and returns 500. Must run before the API
+ * accepts requests.
+ */
+export async function seedLocalUser(): Promise<void> {
+  if (process.env.LOCAL_MODE !== "true") return;
+  const db = getDb();
+  await db
+    .insert(schema.users)
+    .values({
+      id: LOCAL_USER_ID,
+      email: "local@netleaf.local",
+      name: "Local mode",
+      emailVerified: true,
+    })
+    .onConflictDoNothing();
+}
 
 export async function seedLegacyKeys(): Promise<void> {
   if (!config.legacyApiKeys) return;

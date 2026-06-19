@@ -2,7 +2,7 @@ import { pool } from "./scraper/browser.js";
 import { startWorker, reapZombieJobs } from "./queue/jobs.js";
 import { buildServer } from "./api/server.js";
 import { config } from "./config/index.js";
-import { seedLegacyKeys } from "./db/seed.js";
+import { seedLegacyKeys, seedLocalUser } from "./db/seed.js";
 import { startScheduler, stopScheduler } from "./services/scheduler.js";
 
 async function main() {
@@ -20,6 +20,14 @@ async function main() {
 
   // Run legacy key migration if needed
   if (config.databaseUrl) {
+    // LOCAL_MODE assigns a nil-UUID virtual user to every request; the FK
+    // constraint on crawl_jobs.user_id / scheduled_crawls.user_id requires
+    // the matching users row to exist. Idempotent — does nothing in
+    // authenticated mode.
+    await seedLocalUser().catch((err) =>
+      console.warn("Local user seed skipped:", err.message)
+    );
+
     await seedLegacyKeys().catch((err) =>
       console.warn("Legacy key migration skipped:", err.message)
     );

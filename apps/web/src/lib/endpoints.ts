@@ -37,11 +37,17 @@ export const endpoints: EndpointDoc[] = [
         default: '["markdown"]',
       },
       {
-        name: "waitFor",
+        name: "waitForSelector",
+        type: "string",
+        required: false,
+        description: "CSS selector to wait for before extracting content",
+      },
+      {
+        name: "timeout",
         type: "number",
         required: false,
-        description: "Extra milliseconds to wait after page load before extracting",
-        default: "0",
+        description: "Navigation timeout in milliseconds (1000-60000)",
+        default: "30000",
       },
     ],
     curl: `curl -X POST http://localhost:3000/v1/scrape \\
@@ -360,24 +366,38 @@ export const endpoints: EndpointDoc[] = [
         name: "cronExpression",
         type: "string",
         required: true,
-        description: "Standard 5-field cron expression, e.g. '0 2 * * *' for 2 AM daily",
+        description: "Standard 5-field cron expression (≥5-minute interval). e.g. '0 2 * * *' for 2 AM daily",
       },
       { name: "url", type: "string", required: true, description: "URL to crawl on each run" },
       {
-        name: "options",
-        type: "object",
+        name: "maxPages",
+        type: "number",
         required: false,
-        description: "CrawlOptions (maxPages, maxDepth, formats, webhookUrl)",
+        description: "Maximum pages to crawl per run (1-1000)",
+        default: "100",
+      },
+      {
+        name: "formats",
+        type: "string[]",
+        required: false,
+        description: 'Content formats to extract per page',
+        default: '["markdown"]',
+      },
+      {
+        name: "webhookUrl",
+        type: "string",
+        required: false,
+        description: "HTTPS URL to POST results to when each run completes",
       },
     ],
     curl: `curl -X POST http://localhost:3000/v1/schedule \\
   -H "Content-Type: application/json" \\
-  -d '{"name":"Nightly docs","cronExpression":"0 2 * * *","url":"https://docs.example.com"}'`,
+  -d '{"name":"Nightly docs","cronExpression":"0 2 * * *","url":"https://docs.example.com","maxPages":200}'`,
     exampleRequest: `{
   "name": "Nightly docs",
   "cronExpression": "0 2 * * *",
   "url": "https://docs.example.com",
-  "options": { "maxPages": 200 }
+  "maxPages": 200
 }`,
     exampleResponse: `{
   "success": true,

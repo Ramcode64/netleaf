@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireApiKey } from "../middleware/auth.js";
 import { mapSite } from "../../services/mapService.js";
 import { httpUrl } from "../../security/validators.js";
+import { formatZodError } from "../zod-format.js";
 
 const MapBodySchema = z.object({
   url: httpUrl(),
@@ -19,7 +20,7 @@ export async function mapRoutes(app: FastifyInstance): Promise<void> {
       if (!parsed.success) {
         return reply.status(400).send({
           success: false,
-          error: parsed.error.issues.map((i) => i.message).join(", "),
+          error: formatZodError(parsed.error),
         });
       }
 

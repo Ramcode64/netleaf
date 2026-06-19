@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireApiKey } from "../middleware/auth.js";
 import { diffJobs } from "../../services/diffService.js";
+import { formatZodError } from "../zod-format.js";
 
 const DiffQuerySchema = z.object({
   jobIdA: z.string().uuid("jobIdA must be a valid UUID"),
@@ -14,7 +15,7 @@ export async function diffRoutes(app: FastifyInstance): Promise<void> {
     if (!parsed.success) {
       return reply.status(400).send({
         success: false,
-        error: parsed.error.issues.map((i) => i.message).join(", "),
+        error: formatZodError(parsed.error),
       });
     }
 

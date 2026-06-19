@@ -73,9 +73,19 @@ export async function buildServer() {
     "application/json",
     { parseAs: "string" },
     (req, body, done) => {
+      // Empty body for a JSON endpoint is a client error, not a server crash.
+      // Without this branch, downstream Zod parsing receives undefined and the
+      // error handler can't distinguish the empty-body case.
+      const text = (body as string) ?? "";
+      if (text.trim() === "") {
+        const err = new Error("Request body is empty");
+        (err as Error & { statusCode?: number }).statusCode = 400;
+        return done(err, undefined);
+      }
       try {
-        done(null, JSON.parse(body as string));
+        done(null, JSON.parse(text));
       } catch (err) {
+        (err as Error & { statusCode?: number }).statusCode = 400;
         done(err as Error, undefined);
       }
     }
@@ -125,7 +135,18 @@ export async function buildServer() {
       });
     }
 
-    // Body-too-large, malformed JSON, etc. — Fastify sets statusCode on the error
+    // Body-parser failures (malformed JSON, empty body, wrong content type)
+    // surface as FST_ERR_CTP_* codes — should be 400, not 500. Fastify's
+    // statusCode-mapping below handles them if it sets statusCode, but the
+    // empty-body case throws a plain Error in our custom parser.
+    if (errCode.startsWith("FST_ERR_CTP_") || /JSON|Unexpected token/i.test(err.message)) {
+      return reply.code(400).send({
+        success: false,
+        error: "Invalid request body: " + (err.message || "could not parse JSON"),
+      });
+    }
+
+    // Body-too-large, missing content-type, etc. — Fastify sets statusCode
     if (err.statusCode && err.statusCode >= 400 && err.statusCode < 500) {
       return reply.code(err.statusCode).send({
         success: false,

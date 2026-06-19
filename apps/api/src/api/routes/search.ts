@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireApiKey } from "../middleware/auth.js";
 import { search } from "../../services/searchService.js";
+import { formatZodError } from "../zod-format.js";
 
 const SearchBodySchema = z.object({
   query: z.string().min(1, "query must not be empty").max(500, "query must be at most 500 characters"),
@@ -22,7 +23,7 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
       if (!parsed.success) {
         return reply.status(400).send({
           success: false,
-          error: parsed.error.issues.map((i) => i.message).join(", "),
+          error: formatZodError(parsed.error),
         });
       }
 
