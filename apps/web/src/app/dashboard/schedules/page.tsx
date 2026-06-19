@@ -1,14 +1,13 @@
 import { desc, eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
 import { getDb, scheduledCrawls } from "@/lib/db";
+import { requireUserId } from "@/lib/session-guard";
 import { ScheduleList, type ScheduleRow } from "@/components/dashboard/ScheduleList";
 import { ScheduleCreateForm } from "@/components/dashboard/ScheduleCreateForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function SchedulesPage() {
-  const session = await auth();
-  const userId = (session!.user as { id: string }).id;
+  const userId = await requireUserId();
   const db = getDb();
 
   const rows = await db

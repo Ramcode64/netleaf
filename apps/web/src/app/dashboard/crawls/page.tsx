@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { ChevronRight } from "lucide-react";
-import { auth } from "@/lib/auth";
 import { getDb, crawlJobs } from "@/lib/db";
+import { requireUserId } from "@/lib/session-guard";
 import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +15,7 @@ const statusTone: Record<string, "leaf" | "amber" | "red" | "muted"> = {
 };
 
 export default async function CrawlsPage() {
-  const session = await auth();
-  const userId = (session!.user as { id: string }).id;
+  const userId = await requireUserId();
   const db = getDb();
 
   // Select only display columns — pages JSONB can be MBs per job; fetching all

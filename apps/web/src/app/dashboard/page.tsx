@@ -1,6 +1,6 @@
 import { and, count, eq, gte } from "drizzle-orm";
-import { auth } from "@/lib/auth";
 import { getDb, usageEvents, crawlJobs, apiKeys } from "@/lib/db";
+import { requireUserId } from "@/lib/session-guard";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { UsageChart, type UsagePoint } from "@/components/dashboard/UsageChart";
 
@@ -17,8 +17,7 @@ function lastNDays(n: number): string[] {
 }
 
 export default async function OverviewPage() {
-  const session = await auth();
-  const userId = (session!.user as { id: string }).id;
+  const userId = await requireUserId();
   const db = getDb();
 
   const since = new Date();

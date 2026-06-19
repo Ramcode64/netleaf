@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { ArrowLeft, FileText, Download, Terminal } from "lucide-react";
-import { auth } from "@/lib/auth";
 import { getDb, crawlJobs, crawlPages } from "@/lib/db";
+import { requireUserId } from "@/lib/session-guard";
 import { Badge } from "@/components/ui/badge";
 import { isLoopbackApiUrl } from "@/lib/api-url";
 
@@ -23,8 +23,7 @@ export default async function CrawlDetailPage({ params }: { params: Promise<{ id
   // non-UUIDs early avoids a Postgres type-error 500.
   if (!z.string().uuid().safeParse(id).success) notFound();
 
-  const session = await auth();
-  const userId = (session!.user as { id: string }).id;
+  const userId = await requireUserId();
   const db = getDb();
 
   // Ownership baked into the SELECT — missing or other-user rows fall through to 404.

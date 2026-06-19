@@ -1,13 +1,12 @@
 import { and, eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
 import { getDb, apiKeys } from "@/lib/db";
+import { requireUserId } from "@/lib/session-guard";
 import { ApiKeyManager, type KeyRow } from "@/components/dashboard/ApiKeyManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApiKeysPage() {
-  const session = await auth();
-  const userId = (session!.user as { id: string }).id;
+  const userId = await requireUserId();
   const db = getDb();
 
   const rows = await db

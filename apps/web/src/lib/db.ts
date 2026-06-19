@@ -105,7 +105,18 @@ export function getDb() {
   if (!_db) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is not set");
-    const sql = postgres(url, { max: 5 });
+    // Serverless pool sizing — each Vercel lambda instance owns its own pool.
+    // With max:5 and concurrent cold-starts, Neon's free-tier connection cap
+    // (~100) saturates fast. max:1 is the Neon-on-Vercel recommendation.
+    // idle_timeout / max_lifetime force connection turnover so long-warm
+    // instances don't pin connections forever. prepare:false disables prepared
+    // statements which don't survive PgBouncer transaction-pool mode anyway.
+    const sql = postgres(url, {
+      max: 1,
+      idle_timeout: 20,
+      max_lifetime: 60 * 30,
+      prepare: false,
+    });
     _db = drizzle(sql, { schema });
   }
   return _db;
