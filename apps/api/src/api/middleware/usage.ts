@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { getDb, schema } from "../../db/client.js";
+import { LOCAL_USER_ID } from "./auth.js";
 
 /**
  * Records a usage event after each /v1/* response. Registered as an onResponse
@@ -14,8 +15,10 @@ export async function trackUsage(
   const routePath = request.routeOptions?.url ?? request.url;
   if (!routePath.startsWith("/v1/")) return;
 
-  // No meaningful user to attribute (local mode uses a synthetic id).
-  if (!request.userId || request.userId === "local") return;
+  // No meaningful user to attribute. Local mode shares one virtual user
+  // (LOCAL_USER_ID) — usage tracking would just clutter the table with
+  // unattributable rows.
+  if (!request.userId || request.userId === LOCAL_USER_ID) return;
 
   try {
     const db = getDb();

@@ -96,6 +96,51 @@ export async function buildServer() {
   // Usage tracking — runs after response is sent, doesn't block
   app.addHook("onResponse", trackUsage);
 
+  // Consistent envelope for unmatched routes — the rest of the API uses
+  // {success, error}, so 404 should too. Default Fastify reply is an empty body.
+  app.setNotFoundHandler((request, reply) => {
+    reply
+      .code(404)
+      .send({ success: false, error: `Route ${request.method} ${request.url} not found` });
+  });
+
+  // Top-level error handler — turns infrastructure errors (DNS, ECONNREFUSED,
+  // pool exhaustion) into 503 without leaking the internal hostname or stack.
+  // Anything else falls through to a generic 500 with the request ID logged.
+  // 4xx errors thrown via reply.code()/handlers come through here too; we
+  // respect a pre-set statusCode rather than overriding it.
+  app.setErrorHandler((err, request, reply) => {
+    const errCode = (err as { code?: string }).code ?? "";
+    const isConnError =
+      ["EAI_AGAIN", "ENOTFOUND", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENETUNREACH"].includes(
+        errCode
+      ) ||
+      /(getaddrinfo|connect ECONN|connection terminated|pool|postgres|redis)/i.test(err.message);
+
+    if (isConnError) {
+      request.log.error({ err, code: errCode }, "infrastructure error");
+      return reply.code(503).send({
+        success: false,
+        error: "Service temporarily unavailable. Please retry shortly.",
+      });
+    }
+
+    // Body-too-large, malformed JSON, etc. — Fastify sets statusCode on the error
+    if (err.statusCode && err.statusCode >= 400 && err.statusCode < 500) {
+      return reply.code(err.statusCode).send({
+        success: false,
+        error: err.message || "Bad request",
+      });
+    }
+
+    // Anything else: log full detail server-side, return a generic 500
+    request.log.error({ err }, "unhandled error");
+    return reply.code(500).send({
+      success: false,
+      error: "Internal server error",
+    });
+  });
+
   await app.register(healthRoutes);
   await app.register(scrapeRoutes);
   await app.register(crawlRoutes);

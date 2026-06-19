@@ -1,15 +1,43 @@
 "use client";
 
 import { useState } from "react";
+import { Terminal } from "lucide-react";
 import type { EndpointDoc } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
+import { isLoopbackApiUrl } from "@/lib/api-url";
 
 interface TryItProps {
   endpoint: EndpointDoc;
   apiUrl: string;
 }
 
+// The Vercel showcase ships NEXT_PUBLIC_API_URL=http://localhost:3000 as a
+// placeholder — visitor browsers can't reach the operator's local API. Pick
+// the right component up-front so the inner form's hooks stay unconditional.
 export function TryIt({ endpoint, apiUrl }: TryItProps) {
+  if (isLoopbackApiUrl(apiUrl)) return <TryItUnavailable />;
+  return <TryItForm endpoint={endpoint} apiUrl={apiUrl} />;
+}
+
+function TryItUnavailable() {
+  return (
+    <div className="mt-8 rounded-xl border border-white/10 bg-ink-900/40 p-6">
+      <h3 className="text-sm font-semibold uppercase tracking-wider text-leaf-400">Try it</h3>
+      <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-100">
+        <Terminal className="mt-0.5 h-4 w-4 shrink-0" />
+        <div>
+          <p className="font-medium">Live preview only works when the API is running on your machine.</p>
+          <p className="mt-1 text-amber-100/80">
+            Run <code className="rounded bg-ink-950 px-1.5 py-0.5 font-mono text-xs">docker compose up</code>{" "}
+            and the Try-It panel will become interactive. Until then, copy the curl example below.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TryItForm({ endpoint, apiUrl }: TryItProps) {
   const [apiKey, setApiKey] = useState("");
   const [body, setBody] = useState(endpoint.exampleRequest ?? "");
   const [jobId, setJobId] = useState("");

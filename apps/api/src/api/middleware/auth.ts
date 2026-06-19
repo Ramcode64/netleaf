@@ -12,6 +12,12 @@ declare module "fastify" {
   }
 }
 
+// Nil UUID used as the single virtual user in LOCAL_MODE. UUID-typed columns
+// (scheduled_crawls.user_id, api_keys.user_id) require a valid UUID, so a plain
+// "local" string sentinel can't be inserted. The nil UUID is reserved by RFC
+// 4122 §4.1.7 and will never collide with a real user.
+export const LOCAL_USER_ID = "00000000-0000-0000-0000-000000000000";
+
 export async function requireApiKey(
   request: FastifyRequest,
   reply: FastifyReply
@@ -19,6 +25,9 @@ export async function requireApiKey(
   // Local mode — skip auth entirely, useful for personal PC use.
   // Read from env at call time (not frozen config) so tests can toggle it.
   if (process.env.LOCAL_MODE === "true") {
+    // Assign a stable virtual user so routes that require a userId
+    // (scheduled_crawls, ownership filters) work without an API key.
+    request.userId = LOCAL_USER_ID;
     return;
   }
 

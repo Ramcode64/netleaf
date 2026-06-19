@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { ArrowLeft, FileText, Download } from "lucide-react";
+import { ArrowLeft, FileText, Download, Terminal } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getDb, crawlJobs, crawlPages } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
+import { isLoopbackApiUrl } from "@/lib/api-url";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,7 @@ export default async function CrawlDetailPage({ params }: { params: Promise<{ id
   // on the showcase Vercel deploy it points to localhost so links resolve only when
   // an operator runs the API alongside.
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  const apiReachable = !isLoopbackApiUrl(apiUrl);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -92,8 +94,10 @@ export default async function CrawlDetailPage({ params }: { params: Promise<{ id
         </div>
 
         {/* Hidden for failed jobs (nothing to export); disabled while pending
-            (no pages yet). Running/completed allow partial export. */}
-        {job.status !== "failed" && (
+            (no pages yet). Running/completed allow partial export. Also hidden
+            when the configured API URL is loopback — that's the showcase case
+            where the visitor's browser can't reach the operator's local API. */}
+        {job.status !== "failed" && apiReachable && (
           <div className="flex flex-wrap items-center gap-2">
             <DownloadButton
               href={`${apiUrl}/v1/crawl/${id}/export?format=csv`}
@@ -118,6 +122,19 @@ export default async function CrawlDetailPage({ params }: { params: Promise<{ id
         <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-200">
           <p className="font-medium">Crawl failed</p>
           <p className="mt-1 break-words">{job.error}</p>
+        </div>
+      )}
+
+      {!apiReachable && job.status !== "failed" && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-100">
+          <Terminal className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">Exports are only available when the API is running.</p>
+            <p className="mt-1 text-amber-100/80">
+              This showcase points at <code className="font-mono text-xs">localhost:3000</code>.
+              Start the API locally to enable CSV / XML / ZIP downloads.
+            </p>
+          </div>
         </div>
       )}
 

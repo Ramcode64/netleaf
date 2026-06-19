@@ -20,11 +20,14 @@ export async function keysRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ success: false, error: "Name is required" });
       }
 
-      // In local mode no user is attached — key management is meaningless and
-      // would violate the NOT NULL userId constraint. Reject cleanly.
+      // API keys only make sense in authenticated mode. Reject cleanly in
+      // LOCAL_MODE — auth is bypassed there, so keys are meaningless.
+      if (process.env.LOCAL_MODE === "true") {
+        return reply.code(400).send({ success: false, error: "API key management is disabled in local mode" });
+      }
       const userId = request.userId;
       if (!userId) {
-        return reply.code(400).send({ success: false, error: "API key management is disabled in local mode" });
+        return reply.code(401).send({ success: false, error: "Authentication required" });
       }
 
       const db = getDb();
@@ -68,9 +71,14 @@ export async function keysRoutes(app: FastifyInstance): Promise<void> {
     "/v1/keys",
     { preHandler: requireApiKey },
     async (request, reply) => {
+      // E-13: LOCAL_MODE has no real keys; return empty list consistently
+      // with POST/DELETE returning "disabled".
+      if (process.env.LOCAL_MODE === "true") {
+        return reply.send({ success: true, data: [] });
+      }
       const userId = request.userId;
       if (!userId) {
-        return reply.send({ success: true, data: [] });
+        return reply.code(401).send({ success: false, error: "Authentication required" });
       }
 
       const db = getDb();
@@ -97,9 +105,12 @@ export async function keysRoutes(app: FastifyInstance): Promise<void> {
       if (!z.string().uuid().safeParse(id).success) {
         return reply.code(404).send({ success: false, error: "Key not found" });
       }
+      if (process.env.LOCAL_MODE === "true") {
+        return reply.code(400).send({ success: false, error: "API key management is disabled in local mode" });
+      }
       const userId = request.userId;
       if (!userId) {
-        return reply.code(400).send({ success: false, error: "API key management is disabled in local mode" });
+        return reply.code(401).send({ success: false, error: "Authentication required" });
       }
 
       const db = getDb();
