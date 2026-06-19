@@ -65,7 +65,7 @@ export default async function OverviewPage() {
         <p className="mt-1 text-sm text-ink-100">Your last 14 days of activity.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardTitle>Requests (14d)</CardTitle>
           <CardValue>{totalRequests}</CardValue>
@@ -78,16 +78,15 @@ export default async function OverviewPage() {
           <CardTitle>Active API keys</CardTitle>
           <CardValue>{keyCount}</CardValue>
         </Card>
+        <Card>
+          <CardTitle>Total crawl jobs</CardTitle>
+          <CardValue>{jobCount}</CardValue>
+        </Card>
       </div>
 
       <Card>
         <CardTitle className="mb-4">Requests per day</CardTitle>
         <UsageChart data={chartData} />
-      </Card>
-
-      <Card>
-        <CardTitle className="mb-1">Total crawl jobs</CardTitle>
-        <CardValue>{jobCount}</CardValue>
       </Card>
     </div>
   );

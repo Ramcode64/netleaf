@@ -91,13 +91,27 @@ export default async function CrawlDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
-        {/* Download buttons — point at the live API. They show even for
-            in-progress crawls; the API returns a partial export. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <DownloadButton href={`${apiUrl}/v1/crawl/${id}/export?format=csv`} label="CSV" />
-          <DownloadButton href={`${apiUrl}/v1/crawl/${id}/export?format=xml`} label="XML" />
-          <DownloadButton href={`${apiUrl}/v1/crawl/${id}/export?format=zip`} label="ZIP" />
-        </div>
+        {/* Hidden for failed jobs (nothing to export); disabled while pending
+            (no pages yet). Running/completed allow partial export. */}
+        {job.status !== "failed" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <DownloadButton
+              href={`${apiUrl}/v1/crawl/${id}/export?format=csv`}
+              label="CSV"
+              disabled={job.status === "pending"}
+            />
+            <DownloadButton
+              href={`${apiUrl}/v1/crawl/${id}/export?format=xml`}
+              label="XML"
+              disabled={job.status === "pending"}
+            />
+            <DownloadButton
+              href={`${apiUrl}/v1/crawl/${id}/export?format=zip`}
+              label="ZIP"
+              disabled={job.status === "pending"}
+            />
+          </div>
+        )}
       </div>
 
       {job.error && (
@@ -170,7 +184,26 @@ export default async function CrawlDetailPage({ params }: { params: Promise<{ id
   );
 }
 
-function DownloadButton({ href, label }: { href: string; label: string }) {
+function DownloadButton({
+  href,
+  label,
+  disabled,
+}: {
+  href: string;
+  label: string;
+  disabled?: boolean;
+}) {
+  if (disabled) {
+    return (
+      <span
+        aria-disabled
+        title="No pages yet — wait for the crawl to produce results"
+        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-white/5 bg-ink-900/30 px-3 py-1.5 text-xs text-ink-100/40"
+      >
+        <Download className="h-3 w-3" /> {label}
+      </span>
+    );
+  }
   return (
     <a
       href={href}

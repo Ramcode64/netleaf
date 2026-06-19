@@ -11,7 +11,7 @@ const links = {
   ],
   Developers: [
     { label: "Docs", href: "/docs" },
-    { label: "API Reference", href: "/docs/api" },
+    { label: "API Reference", href: "/docs/scrape" },
     {
       label: "GitHub",
       href: "https://github.com/Ramcode64/netleaf",
@@ -73,9 +73,10 @@ export function Footer() {
                   ) : item.href.startsWith("#") ? (
                     <li key={item.label}>
                       <a
-                        href={item.href}
+                        href={`/${item.href}`}
                         className="text-xs text-ink-400 transition-colors hover:text-ink-900"
                         onClick={(e) => {
+                          if (window.location.pathname !== "/") return;
                           e.preventDefault();
                           history.replaceState(null, "", item.href);
                           document.querySelector(item.href)?.scrollIntoView({ behavior: "smooth" });

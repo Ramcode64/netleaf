@@ -89,6 +89,14 @@ const CreateScheduleSchema = z.object({
   webhookUrl: z
     .string()
     .url()
+    .refine((u) => {
+      try {
+        const parsed = new URL(u);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }, "webhookUrl must be http(s)")
     .optional()
     .or(z.literal(""))
     .transform((v) => (v && v.length > 0 ? v : undefined)),

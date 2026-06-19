@@ -12,7 +12,10 @@ export const metadata: Metadata = {
   title: "Netleaf",
   description:
     "Self-host in one command. No rate limits. Multi-LLM extraction. A free, open-source alternative to Firecrawl.",
-  metadataBase: new URL("https://netleaf.org"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://netleaf.vercel.app")
+  ),
   openGraph: {
     title: "Netleaf — The free, open-source web data platform",
     description: "Scrape, crawl, map, extract, search, schedule. Free forever, self-hosted.",

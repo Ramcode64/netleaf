@@ -476,7 +476,9 @@ LOCAL_MODE=true`}</CodeBlock>
       </h2>
       <p className="text-ink-300 leading-relaxed">
         Set <InlineCode>LOCAL_MODE=false</InlineCode> to require a valid API key on every request.
-        The web dashboard also requires sign-in via email/password or Google OAuth.
+        The web dashboard requires sign-in via email/password by default. Google OAuth is
+        optional — set <InlineCode>AUTH_GOOGLE_ID</InlineCode> and{" "}
+        <InlineCode>AUTH_GOOGLE_SECRET</InlineCode> to enable it.
       </p>
       <CodeBlock>{`# apps/api/.env
 LOCAL_MODE=false

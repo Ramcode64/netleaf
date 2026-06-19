@@ -61,7 +61,7 @@ export function Features() {
         {/* Header */}
         <div className="mb-20 text-center">
           <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-leaf-600">
-            Seven endpoints
+            Ten endpoints
           </p>
           <h2 className="text-balance text-5xl font-bold tracking-tight text-ink-900 md:text-6xl">
             Everything you need

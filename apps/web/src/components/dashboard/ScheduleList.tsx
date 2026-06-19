@@ -53,6 +53,8 @@ function ScheduleItem({ row }: { row: ScheduleRow }) {
         <Button
           variant="ghost"
           size="sm"
+          aria-label={row.isActive ? "Pause schedule" : "Activate schedule"}
+          title={row.isActive ? "Pause schedule" : "Activate schedule"}
           disabled={pending}
           onClick={() => startTransition(() => toggleSchedule(row.id, !row.isActive))}
         >
@@ -61,6 +63,8 @@ function ScheduleItem({ row }: { row: ScheduleRow }) {
         <Button
           variant="ghost"
           size="sm"
+          aria-label="Delete schedule"
+          title="Delete schedule"
           disabled={pending}
           onClick={() => startTransition(() => deleteSchedule(row.id))}
           className="text-red-300 hover:bg-red-500/10"

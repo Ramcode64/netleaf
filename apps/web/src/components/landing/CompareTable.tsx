@@ -139,13 +139,22 @@ export function CompareTable() {
           </p>
         </div>
 
-        {/* Scrollable table wrapper */}
-        <div className="overflow-x-auto rounded-2xl border border-ink-100 shadow-sm">
+        {/* Scrollable table wrapper. Sticky first column on mobile keeps the
+            feature name in view while scrolling through the competitor columns. */}
+        <div className="relative overflow-x-auto rounded-2xl border border-ink-100 shadow-sm">
           <table className="w-full min-w-[780px] text-sm">
             <thead>
               <tr className="border-b border-ink-100 bg-ink-50">
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-ink-400 w-36">
+                <th className="sticky left-0 z-10 bg-ink-50 px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-ink-400 w-36">
                   Feature
+                </th>
+                {/* Netleaf — moved first on the right side of "Feature" so mobile
+                    visitors see the highlighted winner column without scrolling. */}
+                <th className="bg-leaf-50 px-4 py-4 text-center">
+                  <span className="flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-leaf-700">
+                    <Leaf className="h-3 w-3" />
+                    Netleaf
+                  </span>
                 </th>
                 {competitors.map((c) => (
                   <th
@@ -155,37 +164,31 @@ export function CompareTable() {
                     {c.label}
                   </th>
                 ))}
-                {/* Netleaf — highlighted */}
-                <th className="bg-leaf-50 px-4 py-4 text-center">
-                  <span className="flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-leaf-700">
-                    <Leaf className="h-3 w-3" />
-                    Netleaf
-                  </span>
-                </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.feature} className="border-b border-ink-50 last:border-0">
-                  <td className="px-5 py-3.5 font-medium text-ink-900 whitespace-nowrap">
+                <tr key={row.feature} className="border-b border-ink-50 last:border-0 bg-white">
+                  <td className="sticky left-0 z-10 bg-white px-5 py-3.5 font-medium text-ink-900 whitespace-nowrap">
                     {row.feature}
+                  </td>
+                  <td className="bg-leaf-50/60 px-4 py-3.5 text-center">
+                    <Cell value={row.netleaf} highlight />
                   </td>
                   {competitors.map((c) => (
                     <td key={c.key} className="px-4 py-3.5 text-center">
                       <Cell value={row[c.key]} />
                     </td>
                   ))}
-                  <td className="bg-leaf-50/60 px-4 py-3.5 text-center">
-                    <Cell value={row.netleaf} highlight />
-                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* Footnote */}
+        {/* Footnote — scroll hint visible only on small screens. */}
         <p className="mt-5 text-center text-xs text-ink-400">
+          <span className="mr-2 inline-block md:hidden text-leaf-600">← swipe to compare →</span>
           Data accurate as of 2026. Crawlee is an open-source library, not a hosted API — included for reference.
           <span className="ml-2 inline-flex items-center gap-1">
             <Minus className="h-3 w-3 text-amber-500/70" /> = partial support.

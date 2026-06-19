@@ -3,7 +3,7 @@ import { Check, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const included = [
-  "All 7 endpoints — unlimited requests",
+  "All 10 endpoints — unlimited requests",
   "Multi-LLM extraction (Claude · OpenAI · Ollama)",
   "Scheduled crawls + cron management",
   "Cryptographic change detection",

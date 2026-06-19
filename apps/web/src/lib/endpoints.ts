@@ -44,7 +44,7 @@ export const endpoints: EndpointDoc[] = [
         default: "0",
       },
     ],
-    curl: `curl -X POST http://localhost:3001/v1/scrape \\
+    curl: `curl -X POST http://localhost:3000/v1/scrape \\
   -H "Content-Type: application/json" \\
   -d '{"url":"https://example.com","formats":["markdown"]}'`,
     exampleRequest: `{
@@ -99,7 +99,7 @@ export const endpoints: EndpointDoc[] = [
         description: "URL to POST the completed results to",
       },
     ],
-    curl: `curl -X POST http://localhost:3001/v1/crawl \\
+    curl: `curl -X POST http://localhost:3000/v1/crawl \\
   -H "Content-Type: application/json" \\
   -d '{"url":"https://docs.example.com","maxPages":100}'`,
     exampleRequest: `{
@@ -123,7 +123,7 @@ export const endpoints: EndpointDoc[] = [
     queryParams: [
       { name: "id", type: "string", required: true, description: "Job ID returned by POST /v1/crawl" },
     ],
-    curl: `curl http://localhost:3001/v1/crawl/c3d4e5f6-...`,
+    curl: `curl http://localhost:3000/v1/crawl/c3d4e5f6-...`,
     exampleResponse: `{
   "success": true,
   "data": {
@@ -155,7 +155,7 @@ export const endpoints: EndpointDoc[] = [
         description: "HTTPS endpoint to receive the crawl payload",
       },
     ],
-    curl: `curl -X POST http://localhost:3001/v1/crawl/c3d4e5f6-.../webhook \\
+    curl: `curl -X POST http://localhost:3000/v1/crawl/c3d4e5f6-.../webhook \\
   -H "Content-Type: application/json" \\
   -d '{"webhookUrl":"https://your-app.com/hook"}'`,
     exampleRequest: `{ "webhookUrl": "https://your-app.com/hook" }`,
@@ -185,7 +185,7 @@ export const endpoints: EndpointDoc[] = [
         default: "false",
       },
     ],
-    curl: `curl -X POST http://localhost:3001/v1/map \\
+    curl: `curl -X POST http://localhost:3000/v1/map \\
   -H "Content-Type: application/json" \\
   -d '{"url":"https://example.com","limit":500}'`,
     exampleRequest: `{
@@ -234,7 +234,7 @@ export const endpoints: EndpointDoc[] = [
         default: '"auto"',
       },
     ],
-    curl: `curl -X POST http://localhost:3001/v1/extract \\
+    curl: `curl -X POST http://localhost:3000/v1/extract \\
   -H "Content-Type: application/json" \\
   -d '{
     "url": "https://news.ycombinator.com",
@@ -303,7 +303,7 @@ export const endpoints: EndpointDoc[] = [
         default: '["markdown"]',
       },
     ],
-    curl: `curl -X POST http://localhost:3001/v1/search \\
+    curl: `curl -X POST http://localhost:3000/v1/search \\
   -H "Content-Type: application/json" \\
   -d '{"query":"open source web scrapers","maxResults":5,"scrape":false}'`,
     exampleRequest: `{
@@ -336,7 +336,7 @@ export const endpoints: EndpointDoc[] = [
       { name: "jobIdA", type: "string", required: true, description: "Earlier crawl job ID" },
       { name: "jobIdB", type: "string", required: true, description: "Later crawl job ID" },
     ],
-    curl: `curl "http://localhost:3001/v1/diff?jobIdA=aaa...&jobIdB=bbb..."`,
+    curl: `curl "http://localhost:3000/v1/diff?jobIdA=aaa...&jobIdB=bbb..."`,
     exampleResponse: `{
   "success": true,
   "data": {
@@ -370,7 +370,7 @@ export const endpoints: EndpointDoc[] = [
         description: "CrawlOptions (maxPages, maxDepth, formats, webhookUrl)",
       },
     ],
-    curl: `curl -X POST http://localhost:3001/v1/schedule \\
+    curl: `curl -X POST http://localhost:3000/v1/schedule \\
   -H "Content-Type: application/json" \\
   -d '{"name":"Nightly docs","cronExpression":"0 2 * * *","url":"https://docs.example.com"}'`,
     exampleRequest: `{
@@ -407,7 +407,7 @@ export const endpoints: EndpointDoc[] = [
         default: '"csv"',
       },
     ],
-    curl: `curl "http://localhost:3001/v1/crawl/c3d4e5f6-.../export?format=zip" -o results.zip`,
+    curl: `curl "http://localhost:3000/v1/crawl/c3d4e5f6-.../export?format=zip" -o results.zip`,
     exampleResponse: `(binary file download — Content-Type varies by format)
 csv  → text/csv
 xml  → application/xml

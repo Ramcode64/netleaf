@@ -93,16 +93,24 @@ export function ScheduleCreateForm() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {PRESETS.map((p) => (
-          <button
-            type="button"
-            key={p.cron}
-            onClick={() => setCron(p.cron)}
-            className="rounded-full border border-white/10 px-3 py-1 text-xs text-ink-100 transition-colors hover:border-leaf-500/40 hover:text-white"
-          >
-            {p.label}
-          </button>
-        ))}
+        {PRESETS.map((p) => {
+          const active = cron.trim() === p.cron;
+          return (
+            <button
+              type="button"
+              key={p.cron}
+              onClick={() => setCron(p.cron)}
+              aria-pressed={active}
+              className={
+                active
+                  ? "rounded-full border border-leaf-500/60 bg-leaf-500/10 px-3 py-1 text-xs text-white"
+                  : "rounded-full border border-white/10 px-3 py-1 text-xs text-ink-100 transition-colors hover:border-leaf-500/40 hover:text-white"
+              }
+            >
+              {p.label}
+            </button>
+          );
+        })}
       </div>
 
       <Field label="Start URL" hint="Where the crawl begins">

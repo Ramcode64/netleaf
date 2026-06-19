@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 type Token = { text: string; color: string };
@@ -99,7 +99,21 @@ const bullets = [
 
 export function CodeDemo() {
   const [active, setActive] = useState<string>("scrape");
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const lines = tokenize(examples[active]);
+  const tabs = Object.keys(examples);
+
+  function handleTabKey(e: React.KeyboardEvent<HTMLButtonElement>, idx: number) {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" && e.key !== "Home" && e.key !== "End") return;
+    e.preventDefault();
+    let next = idx;
+    if (e.key === "ArrowRight") next = (idx + 1) % tabs.length;
+    else if (e.key === "ArrowLeft") next = (idx - 1 + tabs.length) % tabs.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = tabs.length - 1;
+    setActive(tabs[next]);
+    tabRefs.current[tabs[next]]?.focus();
+  }
 
   return (
     <section className="bg-ink-950 py-32">
@@ -132,24 +146,41 @@ export function CodeDemo() {
           {/* Right: terminal */}
           <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-ink-900/70 shadow-2xl">
             {/* Tab bar */}
-            <div className="flex border-b border-white/[0.08] bg-ink-950/40">
-              {Object.keys(examples).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActive(tab)}
-                  className={cn(
-                    "px-5 py-3.5 text-xs font-mono font-medium transition-colors",
-                    active === tab
-                      ? "border-b-2 border-leaf-400 bg-white/[0.02] text-white"
-                      : "text-ink-400 hover:text-white"
-                  )}
-                >
-                  {tabLabels[tab]}
-                </button>
-              ))}
+            <div role="tablist" aria-label="Code examples" className="flex border-b border-white/[0.08] bg-ink-950/40">
+              {tabs.map((tab, idx) => {
+                const selected = active === tab;
+                return (
+                  <button
+                    key={tab}
+                    ref={(el) => {
+                      tabRefs.current[tab] = el;
+                    }}
+                    role="tab"
+                    aria-selected={selected}
+                    aria-controls={`codedemo-panel-${tab}`}
+                    id={`codedemo-tab-${tab}`}
+                    tabIndex={selected ? 0 : -1}
+                    onKeyDown={(e) => handleTabKey(e, idx)}
+                    onClick={() => setActive(tab)}
+                    className={cn(
+                      "px-5 py-3.5 text-xs font-mono font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-leaf-500/60 focus-visible:ring-inset",
+                      selected
+                        ? "border-b-2 border-leaf-400 bg-white/[0.02] text-white"
+                        : "text-ink-400 hover:text-white"
+                    )}
+                  >
+                    {tabLabels[tab]}
+                  </button>
+                );
+              })}
             </div>
             {/* Code */}
-            <div className="overflow-x-auto p-6">
+            <div
+              role="tabpanel"
+              id={`codedemo-panel-${active}`}
+              aria-labelledby={`codedemo-tab-${active}`}
+              className="overflow-x-auto p-6"
+            >
               <pre className="font-mono text-sm leading-relaxed">
                 {lines.map((line, i) => (
                   <div key={i}>
