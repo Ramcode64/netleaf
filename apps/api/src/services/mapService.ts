@@ -1,10 +1,18 @@
 import * as cheerio from "cheerio";
 import { extractLinks } from "../crawler/parser.js";
-import { safeFetch } from "../security/ssrf.js";
+import { safeFetch, assertPublicUrl } from "../security/ssrf.js";
 
 export interface MapOptions {
   url: string;
   includeSubdomains?: boolean;
+  /**
+   * When true, includes links to external domains (e.g. example.com →
+   * iana.org). Default false matches the typical "find URLs to crawl on
+   * this site" use case. E2-7: small sites like example.com whose only
+   * link is external would otherwise return 0 links and surprise the
+   * caller.
+   */
+  includeExternal?: boolean;
   limit?: number;
 }
 
@@ -12,6 +20,18 @@ export interface MapResult {
   links: string[];
   total: number;
   source: "sitemap" | "crawl";
+}
+
+/**
+ * Thrown when the start URL is rejected by the SSRF guard. The route
+ * handler maps this to 422 (E2-6) — silent empty results were hiding
+ * SSRF rejections behind a generic "no links found" response.
+ */
+export class MapStartUrlBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MapStartUrlBlockedError";
+  }
 }
 
 const DEFAULT_LIMIT = 100;
@@ -23,15 +43,32 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_URLS_PER_SITEMAP = 5_000;
 
 export async function mapSite(options: MapOptions): Promise<MapResult> {
-  const { url, includeSubdomains = false, limit = DEFAULT_LIMIT } = options;
+  const {
+    url,
+    includeSubdomains = false,
+    includeExternal = false,
+    limit = DEFAULT_LIMIT,
+  } = options;
   const cap = Math.min(limit, MAX_LIMIT);
   const base = new URL(url);
+
+  // E2-6: validate the start URL up front so SSRF rejections surface as a
+  // distinct error instead of being swallowed by the per-tier try/catch
+  // fallbacks below. Previously a request for http://127.0.0.1:22 returned
+  // 200 with empty links — indistinguishable from a legitimate empty site.
+  try {
+    await assertPublicUrl(url);
+  } catch (err) {
+    throw new MapStartUrlBlockedError(
+      err instanceof Error ? err.message : "Start URL blocked by SSRF guard"
+    );
+  }
 
   // 1. Try robots.txt for sitemap directives
   const sitemapUrls = await fetchSitemapUrlsFromRobots(base);
 
   if (sitemapUrls.length > 0) {
-    const links = dedup(sitemapUrls, base, includeSubdomains, cap);
+    const links = dedup(sitemapUrls, base, includeSubdomains, includeExternal, cap);
     if (links.length > 0) {
       return { links, total: links.length, source: "sitemap" };
     }
@@ -42,7 +79,7 @@ export async function mapSite(options: MapOptions): Promise<MapResult> {
     new URL("/sitemap.xml", base).toString()
   );
   if (directSitemapLinks.length > 0) {
-    const links = dedup(directSitemapLinks, base, includeSubdomains, cap);
+    const links = dedup(directSitemapLinks, base, includeSubdomains, includeExternal, cap);
     if (links.length > 0) {
       return { links, total: links.length, source: "sitemap" };
     }
@@ -50,7 +87,7 @@ export async function mapSite(options: MapOptions): Promise<MapResult> {
 
   // 3. Fallback: fetch homepage, extract links via cheerio
   const homeLinks = await fetchPageLinks(url, base);
-  const links = dedup(homeLinks, base, includeSubdomains, cap);
+  const links = dedup(homeLinks, base, includeSubdomains, includeExternal, cap);
   return { links, total: links.length, source: "crawl" };
 }
 
@@ -139,6 +176,7 @@ function dedup(
   urls: string[],
   base: URL,
   includeSubdomains: boolean,
+  includeExternal: boolean,
   limit: number
 ): string[] {
   const seen = new Set<string>();
@@ -158,7 +196,12 @@ function dedup(
       const subdomain =
         includeSubdomains && u.hostname.endsWith(`.${base.hostname}`);
 
-      if ((sameHost || subdomain) && (u.protocol === "http:" || u.protocol === "https:")) {
+      // includeExternal opens the floodgates — accepts any http(s) host.
+      // Useful for small sites whose only links are off-domain (e.g.
+      // example.com → iana.org).
+      const acceptHost = includeExternal || sameHost || subdomain;
+
+      if (acceptHost && (u.protocol === "http:" || u.protocol === "https:")) {
         seen.add(normalised);
         result.push(normalised);
       }

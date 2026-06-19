@@ -8,7 +8,9 @@ import { formatZodError } from "../zod-format.js";
 
 const ScrapeBody = z.object({
   url: httpUrl(),
-  formats: z.array(z.enum(["markdown", "html", "text"])).optional(),
+  // E2-5: `links` returns same-page outbound URLs (via extractLinks). Metadata
+  // is always returned in `data.metadata` — clients shouldn't need to opt in.
+  formats: z.array(z.enum(["markdown", "html", "text", "links"])).optional(),
   waitForSelector: z.string().max(500).optional(),
   timeout: z.number().min(1000).max(60000).optional(),
 });

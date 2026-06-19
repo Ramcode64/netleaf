@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Token = { text: string; color: string };
@@ -99,9 +100,20 @@ const bullets = [
 
 export function CodeDemo() {
   const [active, setActive] = useState<string>("scrape");
+  const [copied, setCopied] = useState(false);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const lines = tokenize(examples[active]);
   const tabs = Object.keys(examples);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(examples[active]);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard API may fail on HTTP origins — silent fallback is fine
+    }
+  }
 
   function handleTabKey(e: React.KeyboardEvent<HTMLButtonElement>, idx: number) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" && e.key !== "Home" && e.key !== "End") return;
@@ -179,8 +191,23 @@ export function CodeDemo() {
               role="tabpanel"
               id={`codedemo-panel-${active}`}
               aria-labelledby={`codedemo-tab-${active}`}
-              className="overflow-x-auto p-6"
+              className="relative overflow-x-auto p-6"
             >
+              <button
+                onClick={copy}
+                aria-label={copied ? "Copied" : "Copy code"}
+                className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-ink-950/80 px-2.5 py-1.5 text-xs text-ink-300 transition-colors hover:border-white/20 hover:text-white"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3 w-3 text-leaf-400" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" /> Copy
+                  </>
+                )}
+              </button>
               <pre className="font-mono text-sm leading-relaxed">
                 {lines.map((line, i) => (
                   <div key={i}>

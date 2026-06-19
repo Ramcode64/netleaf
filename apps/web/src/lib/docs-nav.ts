@@ -43,6 +43,13 @@ export const docsNav: NavSection[] = [
     ],
   },
   {
+    heading: "System",
+    items: [
+      { title: "Manage API keys",       href: "/docs/keys",         method: "POST" },
+      { title: "Health probe",          href: "/docs/health",       method: "GET"  },
+    ],
+  },
+  {
     heading: "Guides",
     items: [
       { title: "Crawl a docs site",    href: "/docs/guides/crawl-docs"       },

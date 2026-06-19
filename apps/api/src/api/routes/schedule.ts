@@ -120,6 +120,42 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
     }
   );
 
+  // GET /v1/schedule/:id — fetch one schedule by id (E2-10).
+  // PATCH and DELETE already work by id; GET-by-id closes the REST symmetry
+  // so polling clients don't have to filter the full list response.
+  app.get(
+    "/v1/schedule/:id",
+    { preHandler: requireApiKey },
+    async (request, reply) => {
+      const req = request as typeof request & { userId?: string };
+      const { id } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(id).success) {
+        return reply.status(404).send({ success: false, error: "Schedule not found" });
+      }
+      if (!req.userId) {
+        return reply.status(401).send({ success: false, error: "Authentication required" });
+      }
+
+      const db = getDb();
+      const [schedule] = await db
+        .select()
+        .from(schema.scheduledCrawls)
+        .where(
+          and(
+            eq(schema.scheduledCrawls.id, id),
+            eq(schema.scheduledCrawls.userId, req.userId)
+          )
+        )
+        .limit(1);
+
+      if (!schedule) {
+        return reply.status(404).send({ success: false, error: "Schedule not found" });
+      }
+
+      return reply.send({ success: true, data: schedule });
+    }
+  );
+
   // DELETE /v1/schedule/:id — delete a scheduled crawl
   app.delete(
     "/v1/schedule/:id",

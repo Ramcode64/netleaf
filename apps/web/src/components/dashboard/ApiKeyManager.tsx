@@ -103,6 +103,19 @@ export function ApiKeyManager({ keys }: { keys: KeyRow[] }) {
 
 function KeyRowItem({ row }: { row: KeyRow }) {
   const [pending, startTransition] = useTransition();
+  // U-7: two-click revoke. Single-click destructive is dangerous — a missed
+  // click could break a key deployed in prod. First click swaps to a
+  // "Confirm" red state that auto-resets after 3 seconds.
+  const [confirming, setConfirming] = useState(false);
+
+  function onClick() {
+    if (!confirming) {
+      setConfirming(true);
+      window.setTimeout(() => setConfirming(false), 3000);
+      return;
+    }
+    startTransition(() => revokeApiKey(row.id));
+  }
 
   return (
     <tr className="border-b border-white/5 last:border-0">
@@ -122,10 +135,14 @@ function KeyRowItem({ row }: { row: KeyRow }) {
           variant="ghost"
           size="sm"
           disabled={pending}
-          onClick={() => startTransition(() => revokeApiKey(row.id))}
-          className="text-red-300 hover:bg-red-500/10"
+          onClick={onClick}
+          className={
+            confirming
+              ? "bg-red-500/15 text-red-200 hover:bg-red-500/20"
+              : "text-red-300 hover:bg-red-500/10"
+          }
         >
-          <Trash2 className="h-4 w-4" /> Revoke
+          <Trash2 className="h-4 w-4" /> {confirming ? "Click again to confirm" : "Revoke"}
         </Button>
       </td>
     </tr>

@@ -3,6 +3,10 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Github } from "lucide-react";
 
 export function Hero() {
+  // U-4: on the showcase deploy `DISABLE_REGISTRATION=true`, so the primary
+  // "Start building" CTA sends visitors to a page that immediately tells them
+  // signup is disabled. Surface that here so the click isn't wasted.
+  const showcaseMode = process.env.DISABLE_REGISTRATION === "true";
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-grid pb-24 pt-14">
       {/* Radial glow */}
@@ -46,27 +50,48 @@ export function Hero() {
           className="animate-fade-up mt-10 flex flex-wrap items-center justify-center gap-4"
           style={{ animationDelay: "240ms" }}
         >
-          <Link href="/signup">
-            <Button size="lg" className="glow gap-2 px-8">
-              Start building
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Button>
-          </Link>
-          <a
-            href="https://github.com/Ramcode64/netleaf"
-            target="_blank"
-            rel="noreferrer"
-          >
+          {showcaseMode ? (
+            <a
+              href="https://github.com/Ramcode64/netleaf"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button size="lg" className="glow gap-2 px-8">
+                <Github className="h-4 w-4" />
+                Self-host on GitHub
+              </Button>
+            </a>
+          ) : (
+            <Link href="/signup">
+              <Button size="lg" className="glow gap-2 px-8">
+                Start building
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Button>
+            </Link>
+          )}
+          <Link href="/docs">
             <Button
               variant="outline"
               size="lg"
               className="gap-2 border-white/10 px-8 text-ink-100 hover:border-white/20 hover:text-white"
             >
-              <Github className="h-4 w-4" />
-              View on GitHub
+              Read the docs
             </Button>
-          </a>
+          </Link>
         </div>
+
+        {showcaseMode && (
+          <p
+            className="animate-fade-up mt-6 text-xs text-ink-400"
+            style={{ animationDelay: "280ms" }}
+          >
+            This is a showcase deploy — accounts are disabled. Run{" "}
+            <code className="rounded bg-ink-900/80 px-1.5 py-0.5 font-mono text-leaf-300">
+              docker compose up
+            </code>{" "}
+            to use the full dashboard.
+          </p>
+        )}
 
         {/* Terminal */}
         <div
@@ -83,6 +108,7 @@ export function Hero() {
             </div>
             {/* Commands */}
             <div className="px-6 py-5 text-left font-mono text-sm leading-7">
+              <div className="text-ink-400"># Clone, run, you're online ↓</div>
               <div>
                 <span className="select-none text-ink-400">$ </span>
                 <span className="text-leaf-300">

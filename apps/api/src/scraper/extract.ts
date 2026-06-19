@@ -1,8 +1,23 @@
 import { Page } from "playwright";
 import { htmlToMarkdown, htmlToText, extractMetadata } from "./markdown.js";
+import { extractLinks } from "../crawler/parser.js";
 import { ScrapeOptions, ScrapeResult } from "../types/index.js";
 import { config } from "../config/index.js";
 import { assertPublicUrl } from "../security/ssrf.js";
+
+/**
+ * E2-8: Playwright errors include full stack traces and `Call log:` blocks
+ * with framework internals (selectors tried, waitUntil mode, navigation
+ * states). Surfacing those to API clients leaks implementation detail and
+ * is unhelpful UX. Strip everything after the first newline and remove the
+ * "page.method: " prefix.
+ */
+function sanitizeScrapeError(err: unknown): string {
+  if (!(err instanceof Error)) return "Unknown scrape error";
+  const firstLine = err.message.split("\n", 1)[0].trim();
+  // "page.goto: Timeout 30000ms exceeded." → "Timeout 30000ms exceeded."
+  return firstLine.replace(/^(page|browser|context)\.[a-zA-Z_]+:\s*/, "");
+}
 
 // Hard cap on stored/returned content per format to bound memory + DB size.
 const MAX_CONTENT_CHARS = parseInt(process.env.MAX_CONTENT_CHARS ?? "5000000", 10);
@@ -63,7 +78,7 @@ export async function scrapePage(
     return {
       url: options.url,
       success: false,
-      error: err instanceof Error ? err.message : "Unknown error",
+      error: sanitizeScrapeError(err),
       metadata: {
         statusCode,
         scrapedAt: new Date().toISOString(),

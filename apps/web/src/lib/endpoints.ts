@@ -33,7 +33,7 @@ export const endpoints: EndpointDoc[] = [
         name: "formats",
         type: "string[]",
         required: false,
-        description: 'Content formats to return. Options: "markdown", "html", "text"',
+        description: 'Content formats to return. Options: "markdown", "html", "text", "links"',
         default: '["markdown"]',
       },
       {
@@ -227,10 +227,10 @@ export const endpoints: EndpointDoc[] = [
         description: "JSON Schema describing the shape of the data to extract",
       },
       {
-        name: "prompt",
+        name: "instructions",
         type: "string",
         required: false,
-        description: "Extra instructions for the LLM",
+        description: "Extra instructions appended to the LLM prompt (max 4096 chars)",
       },
       {
         name: "provider",
@@ -432,6 +432,45 @@ export const endpoints: EndpointDoc[] = [
 csv  → text/csv
 xml  → application/xml
 zip  → application/zip`,
+  },
+  {
+    id: "health",
+    method: "GET",
+    path: "/health",
+    title: "Health probe",
+    description:
+      "Returns 200 with `{status: \"ok\", version: \"…\"}` whenever the API process is running. Suitable for Docker healthchecks, Vercel cron probes, or load-balancer liveness checks. Does NOT verify DB / Redis connectivity — it's a process-up signal, not a full readiness probe.",
+    curl: `curl http://localhost:3000/health`,
+    exampleResponse: `{
+  "status": "ok",
+  "version": "0.1.0"
+}`,
+  },
+  {
+    id: "keys",
+    method: "POST",
+    path: "/v1/keys",
+    title: "Manage API keys",
+    description:
+      "Create, list, and revoke per-user API keys. Disabled in LOCAL_MODE (auth is bypassed there, so keys are meaningless). All endpoints require an existing Bearer token. The full key value is shown ONLY in the create response — only the SHA-256 hash is stored.",
+    bodyParams: [
+      { name: "name", type: "string", required: true, description: "Human-readable label (max 100 chars)" },
+    ],
+    curl: `curl -X POST http://localhost:3000/v1/keys \\
+  -H "Authorization: Bearer YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"name":"CI pipeline"}'`,
+    exampleRequest: `{ "name": "CI pipeline" }`,
+    exampleResponse: `{
+  "success": true,
+  "data": {
+    "id": "k1a2b3c4-...",
+    "name": "CI pipeline",
+    "key": "nl_…",
+    "prefix": "nl_abc12345",
+    "createdAt": "2026-06-20T15:00:00Z"
+  }
+}`,
   },
 ];
 

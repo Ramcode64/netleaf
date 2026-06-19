@@ -1,4 +1,4 @@
-export type ScrapeFormat = "markdown" | "html" | "text";
+export type ScrapeFormat = "markdown" | "html" | "text" | "links";
 
 export interface ScrapeOptions {
   url: string;
@@ -13,6 +13,7 @@ export interface ScrapeResult {
   markdown?: string;
   html?: string;
   text?: string;
+  links?: string[];
   metadata: PageMetadata;
   success: boolean;
   error?: string;
