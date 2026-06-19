@@ -28,6 +28,11 @@ RUN npm run build -w apps/api
 # Prune devDeps so the final stage only carries production deps.
 RUN npm prune --omit=dev --workspaces --include-workspace-root
 
+# npm workspaces hoist most deps to /app/node_modules. The per-workspace
+# folder may not exist after prune; create it so the COPY in the runner
+# stage doesn't fail. Empty dir is harmless — Node walks up to /app/node_modules.
+RUN mkdir -p /app/apps/api/node_modules
+
 # ─── Stage 2: runner ─────────────────────────────────────────────────────────
 FROM node:22-slim AS runner
 
