@@ -72,6 +72,9 @@ export async function scrapePage(
     if (formats.includes("markdown")) result.markdown = cap(htmlToMarkdown(html));
     if (formats.includes("html")) result.html = cap(html);
     if (formats.includes("text")) result.text = cap(htmlToText(html));
+    // E2-5: links is opt-in. extractLinks returns same-host http(s) links with
+    // tracking params stripped (same helper the crawler uses).
+    if (formats.includes("links")) result.links = extractLinks(html, options.url);
 
     return result;
   } catch (err) {
