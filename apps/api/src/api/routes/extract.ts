@@ -49,9 +49,13 @@ export async function extractRoutes(app: FastifyInstance): Promise<void> {
           // status, rate-limit info, or model names. Log internally and return a generic message.
           if (err.statusCode === 502) {
             request.log.error({ err }, "extract provider error");
+            // Don't echo raw provider errors (may leak key status / model names),
+            // but name the setup path — the #1 first-run confusion is not knowing
+            // whether the feature is broken or just unconfigured.
             return reply.status(502).send({
               success: false,
-              error: "Extraction failed: all configured providers returned an error. Check server logs.",
+              error:
+                "Extraction failed: no LLM provider succeeded. Configure one — set ANTHROPIC_API_KEY or OPENAI_API_KEY, or run Ollama (OLLAMA_URL). See /docs/extract. Full error in server logs.",
             });
           }
           return reply.status(err.statusCode).send({

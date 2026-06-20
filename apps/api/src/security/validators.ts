@@ -7,17 +7,17 @@ import { z } from "zod";
  * guard (security/ssrf.ts) at fetch time.
  */
 export const httpUrl = (msg = "must be a valid http(s) URL") =>
-  z
-    .string()
-    .url(msg)
-    .refine((v) => {
-      try {
-        const p = new URL(v).protocol;
-        return p === "http:" || p === "https:";
-      } catch {
-        return false;
-      }
-    }, msg);
+  // Single .refine (not .url() + .refine()) so an invalid URL produces ONE
+  // message, not the same message twice. new URL() throws on malformed input,
+  // which the refine treats as invalid — covering syntactic validity too.
+  z.string().refine((v) => {
+    try {
+      const p = new URL(v).protocol;
+      return p === "http:" || p === "https:";
+    } catch {
+      return false;
+    }
+  }, msg);
 
 /**
  * Checks whether a user-supplied regex pattern is safe to compile and run.

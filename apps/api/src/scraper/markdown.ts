@@ -26,10 +26,38 @@ const REMOVE_SELECTORS = [
   "#cookie-notice",
 ];
 
-export function htmlToMarkdown(html: string): string {
+export function htmlToMarkdown(html: string, baseUrl?: string): string {
   const $ = cheerio.load(html);
 
   REMOVE_SELECTORS.forEach((sel) => $(sel).remove());
+
+  // Resolve relative hrefs/srcs to absolute URLs so the markdown is portable
+  // and "AI-ready" — a link like (newest) or an image (logo.png) is useless
+  // once the markdown leaves the page context. Skip if baseUrl is absent or
+  // unparseable, and leave anchors/mailto/tel/data URIs alone.
+  if (baseUrl) {
+    let base: URL | null = null;
+    try {
+      base = new URL(baseUrl);
+    } catch {
+      base = null;
+    }
+    if (base) {
+      const absolutize = (sel: string, attr: string) => {
+        $(sel).each((_, el) => {
+          const val = $(el).attr(attr);
+          if (!val || /^(https?:|mailto:|tel:|data:|#)/i.test(val)) return;
+          try {
+            $(el).attr(attr, new URL(val, base!).toString());
+          } catch {
+            /* leave malformed values untouched */
+          }
+        });
+      };
+      absolutize("a[href]", "href");
+      absolutize("img[src]", "src");
+    }
+  }
 
   // Prefer main content areas
   const mainContent =

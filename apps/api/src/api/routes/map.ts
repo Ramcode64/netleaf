@@ -35,6 +35,7 @@ export async function mapRoutes(app: FastifyInstance): Promise<void> {
             links: result.links,
             total: result.total,
             source: result.source,
+            ...(result.note ? { note: result.note } : {}),
           },
         });
       } catch (err) {

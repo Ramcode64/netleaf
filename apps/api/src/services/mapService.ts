@@ -20,6 +20,7 @@ export interface MapResult {
   links: string[];
   total: number;
   source: "sitemap" | "crawl";
+  note?: string;
 }
 
 /**
@@ -92,6 +93,19 @@ export async function mapSite(options: MapOptions): Promise<MapResult> {
   // 3. Fallback: fetch homepage, extract links via cheerio
   const homeLinks = await fetchPageLinks(url, base);
   const links = dedup(homeLinks, base, includeSubdomains, includeExternal, cap);
+  // An empty result here ("no sitemap, homepage has no same-host links") looks
+  // identical to a failure to a first-time user. Add a note so it's obvious the
+  // call succeeded but the site simply exposed nothing to map.
+  if (links.length === 0) {
+    return {
+      links,
+      total: 0,
+      source: "crawl",
+      note: includeExternal
+        ? "No sitemap found and the homepage exposed no links."
+        : "No sitemap found and the homepage had no same-host links. Try includeExternal:true to include off-domain links.",
+    };
+  }
   return { links, total: links.length, source: "crawl" };
 }
 

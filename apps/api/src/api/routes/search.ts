@@ -37,7 +37,7 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(isMissingKey ? 400 : 502).send({
           success: false,
           error: isMissingKey
-            ? "Search is not configured on this server."
+            ? "Search is not configured. Set BRAVE_API_KEY (free key at https://api.search.brave.com/). See /docs/search."
             : "Search failed. Check server logs for details.",
         });
       }

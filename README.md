@@ -154,8 +154,8 @@ curl -X POST http://localhost:3000/v1/scrape \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://news.ycombinator.com",
-    "formats": ["markdown", "html"],
-    "waitFor": 1000
+    "formats": ["markdown", "html", "links"],
+    "waitForSelector": "main"
   }'
 ```
 
@@ -174,9 +174,9 @@ curl -X POST http://localhost:3000/v1/scrape \
 
 | Option | Type | Description |
 |---|---|---|
-| `formats` | `string[]` | `"markdown"`, `"html"`, or `"text"` |
-| `waitFor` | `number` | Milliseconds to wait for JS to finish loading |
-| `excludeTags` | `string[]` | HTML tags to strip (e.g. `["nav", "footer"]`) |
+| `formats` | `string[]` | `"markdown"`, `"html"`, `"text"`, or `"links"` |
+| `waitForSelector` | `string` | CSS selector to wait for before extracting (e.g. `"main"`) |
+| `timeout` | `number` | Navigation timeout in ms (1000–60000, default 30000) |
 
 ---
 
