@@ -34,6 +34,7 @@ export async function scrapePage(
   const timeout = options.timeout ?? config.defaultTimeoutMs;
 
   let statusCode = 200;
+  const warnings: string[] = [];
 
   try {
     // SSRF guard for the initial URL (the route interceptor covers redirects).
@@ -47,7 +48,17 @@ export async function scrapePage(
     statusCode = response?.status() ?? 200;
 
     if (options.waitForSelector) {
-      await page.waitForSelector(options.waitForSelector, { timeout: 5000 }).catch(() => {});
+      // A-1: don't swallow the timeout silently. If the selector never appears,
+      // the page may be incomplete (e.g. a JS-rendered region didn't load) —
+      // surface a warning so the caller knows rather than getting partial
+      // content that looks successful.
+      try {
+        await page.waitForSelector(options.waitForSelector, { timeout: 5000 });
+      } catch {
+        warnings.push(
+          `waitForSelector "${options.waitForSelector}" not found within 5s — returned content may be incomplete`
+        );
+      }
     }
 
     // Let JS hydrate
@@ -75,6 +86,8 @@ export async function scrapePage(
     // E2-5: links is opt-in. extractLinks returns same-host http(s) links with
     // tracking params stripped (same helper the crawler uses).
     if (formats.includes("links")) result.links = extractLinks(html, options.url);
+
+    if (warnings.length > 0) result.warnings = warnings;
 
     return result;
   } catch (err) {

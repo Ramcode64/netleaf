@@ -130,7 +130,7 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
       const req = request as typeof request & { userId?: string };
       const { id } = request.params as { id: string };
       if (!z.string().uuid().safeParse(id).success) {
-        return reply.status(404).send({ success: false, error: "Schedule not found" });
+        return reply.status(400).send({ success: false, error: "Invalid schedule ID" });
       }
       // requireApiKey preHandler guarantees userId is set (or already 401'd),
       // so no auth re-check needed here.
@@ -163,7 +163,7 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
       const req = request as typeof request & { userId?: string };
       const { id } = request.params as { id: string };
       if (!z.string().uuid().safeParse(id).success) {
-        return reply.status(404).send({ success: false, error: "Schedule not found" });
+        return reply.status(400).send({ success: false, error: "Invalid schedule ID" });
       }
 
       if (!req.userId) {
@@ -197,7 +197,7 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
       const req = request as typeof request & { userId?: string };
       const { id } = request.params as { id: string };
       if (!z.string().uuid().safeParse(id).success) {
-        return reply.status(404).send({ success: false, error: "Schedule not found" });
+        return reply.status(400).send({ success: false, error: "Invalid schedule ID" });
       }
 
       if (!req.userId) {

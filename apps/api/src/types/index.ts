@@ -17,6 +17,8 @@ export interface ScrapeResult {
   metadata: PageMetadata;
   success: boolean;
   error?: string;
+  /** Non-fatal issues, e.g. waitForSelector not found (A-1). */
+  warnings?: string[];
 }
 
 export interface PageMetadata {

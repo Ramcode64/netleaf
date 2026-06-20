@@ -6,6 +6,7 @@ import { crawlQueue, createJobRecord, getJob } from "../../queue/jobs.js";
 import { and, asc, eq, or } from "drizzle-orm";
 import { getDb, schema } from "../../db/client.js";
 import { httpUrl } from "../../security/validators.js";
+import { assertPublicUrl, SsrfError } from "../../security/ssrf.js";
 import { formatZodError } from "../zod-format.js";
 
 const CrawlBody = z.object({
@@ -29,6 +30,19 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
           success: false,
           error: formatZodError(parsed.error),
         });
+      }
+
+      // A-2: validate the start URL against the SSRF guard up front so a blocked
+      // host fails immediately with 422 — matching scrape/map — instead of being
+      // accepted (202) and only rejected later in the worker. The per-page guard
+      // in the worker remains as defense-in-depth.
+      try {
+        await assertPublicUrl(parsed.data.url);
+      } catch (err) {
+        if (err instanceof SsrfError) {
+          return reply.code(422).send({ success: false, error: err.message });
+        }
+        throw err;
       }
 
       const jobId = uuidv4();

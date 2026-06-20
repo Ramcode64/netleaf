@@ -107,11 +107,13 @@ export async function keysRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireApiKey },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      if (!z.string().uuid().safeParse(id).success) {
-        return reply.code(404).send({ success: false, error: "Key not found" });
-      }
+      // A-3: LOCAL_MODE check first so the "disabled" message is consistent with
+      // create/list, regardless of whether the id is a valid UUID.
       if (process.env.LOCAL_MODE === "true") {
         return reply.code(400).send({ success: false, error: "API key management is disabled in local mode" });
+      }
+      if (!z.string().uuid().safeParse(id).success) {
+        return reply.code(400).send({ success: false, error: "Invalid key ID" });
       }
       const userId = request.userId;
       if (!userId) {

@@ -85,6 +85,10 @@ services:
       #   openssl rand -base64 32
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required — generate with `openssl rand -base64 32`}
       AUTH_TRUST_HOST: "true"
+      # Public origin of the web app. Without it NextAuth derives the container's
+      # internal HOSTNAME (0.0.0.0:3000) for sign-in/callback URLs and redirects.
+      # Set to your real origin in prod, e.g. https://netleaf.example.com.
+      AUTH_URL: ${AUTH_URL:-http://localhost:3001}
       AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
