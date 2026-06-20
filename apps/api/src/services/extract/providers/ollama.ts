@@ -36,6 +36,11 @@ export class OllamaProvider implements ExtractProvider {
           model,
           format: "json",
           stream: false,
+          // Reasoning/"thinking" models (qwen3, deepseek-r1, etc.) otherwise route
+          // their answer into a separate `thinking` field and leave `content`
+          // empty — which made extraction fail intermittently. Disable thinking so
+          // the JSON lands in `content`. Harmless on non-thinking models.
+          think: false,
           messages: [
             { role: "system", content: ollamaSystem },
             { role: "user", content: user },
@@ -51,8 +56,12 @@ export class OllamaProvider implements ExtractProvider {
       throw new Error(`Ollama request failed (${response.status}): ${body}`);
     }
 
-    const data = (await response.json()) as { message?: { content?: string } };
-    const text = data?.message?.content;
+    const data = (await response.json()) as {
+      message?: { content?: string; thinking?: string };
+    };
+    // Defensive: if a model ignores think:false and still answers in `thinking`,
+    // fall back to it rather than failing — the JSON is there either way.
+    const text = data?.message?.content || data?.message?.thinking;
     if (!text) throw new Error("Ollama returned empty content");
 
     return parseProviderJson("ollama", text);

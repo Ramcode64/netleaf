@@ -224,6 +224,10 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
           pages: shaped,
           pagination: { offset, limit, returned: shaped.length },
           error: job.error,
+          // Webhook delivery visibility (was tracked in DB but not exposed).
+          ...(job.webhookUrl
+            ? { webhookUrl: job.webhookUrl, webhookSent: job.webhookSent }
+            : {}),
         },
       });
     }
@@ -252,6 +256,8 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
           createdAt: schema.crawlJobs.createdAt,
           completedAt: schema.crawlJobs.completedAt,
           error: schema.crawlJobs.error,
+          webhookUrl: schema.crawlJobs.webhookUrl,
+          webhookSent: schema.crawlJobs.webhookSent,
         })
         .from(schema.crawlJobs)
         .where(eq(schema.crawlJobs.id, jobId))
@@ -274,6 +280,9 @@ export async function crawlRoutes(app: FastifyInstance): Promise<void> {
           createdAt: job.createdAt,
           completedAt: job.completedAt,
           error: job.error,
+          ...(job.webhookUrl
+            ? { webhookUrl: job.webhookUrl, webhookSent: job.webhookSent }
+            : {}),
         },
       });
     }
