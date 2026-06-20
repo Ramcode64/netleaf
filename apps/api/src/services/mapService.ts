@@ -36,6 +36,10 @@ export class MapStartUrlBlockedError extends Error {
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 1000;
+// T4-2: includeExternal returns attacker-chosen off-domain URLs that downstream
+// pipelines (crawl, snapshot) may later fetch. Cap it hard so /v1/map can't be
+// used to enumerate thousands of arbitrary hosts in one call.
+const MAX_EXTERNAL_LIMIT = 50;
 const FETCH_TIMEOUT_MS = 10_000;
 // Cap URLs returned per sitemap file. A sitemap can legally hold 50,000 entries;
 // without this cap, 20 child sitemaps × 50,000 entries = 1M strings (~100 MB)
@@ -49,7 +53,7 @@ export async function mapSite(options: MapOptions): Promise<MapResult> {
     includeExternal = false,
     limit = DEFAULT_LIMIT,
   } = options;
-  const cap = Math.min(limit, MAX_LIMIT);
+  const cap = Math.min(limit, includeExternal ? MAX_EXTERNAL_LIMIT : MAX_LIMIT);
   const base = new URL(url);
 
   // E2-6: validate the start URL up front so SSRF rejections surface as a

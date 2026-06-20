@@ -81,7 +81,7 @@ export function ScheduleCreateForm() {
             className={inputClass}
           />
         </Field>
-        <Field label="Cron expression" hint="When to run">
+        <Field label="Cron expression" hint="When to run — minimum 5 minutes between runs">
           <input
             value={cron}
             onChange={(e) => setCron(e.target.value)}

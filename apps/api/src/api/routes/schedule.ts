@@ -132,9 +132,8 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
       if (!z.string().uuid().safeParse(id).success) {
         return reply.status(404).send({ success: false, error: "Schedule not found" });
       }
-      if (!req.userId) {
-        return reply.status(401).send({ success: false, error: "Authentication required" });
-      }
+      // requireApiKey preHandler guarantees userId is set (or already 401'd),
+      // so no auth re-check needed here.
 
       const db = getDb();
       const [schedule] = await db
@@ -143,7 +142,7 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
         .where(
           and(
             eq(schema.scheduledCrawls.id, id),
-            eq(schema.scheduledCrawls.userId, req.userId)
+            eq(schema.scheduledCrawls.userId, req.userId!)
           )
         )
         .limit(1);

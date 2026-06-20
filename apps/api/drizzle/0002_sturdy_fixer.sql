@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "scheduled_crawls_user_id_idx" ON "scheduled_crawls" USING btree ("user_id","created_at");

@@ -95,8 +95,20 @@ export const endpoints: EndpointDoc[] = [
         name: "formats",
         type: "string[]",
         required: false,
-        description: "Content formats per page",
+        description: 'Content formats per page: "markdown", "html", "text"',
         default: '["markdown"]',
+      },
+      {
+        name: "excludePatterns",
+        type: "string[]",
+        required: false,
+        description: "URL substrings/patterns to skip (max 50 entries, 500 chars each)",
+      },
+      {
+        name: "waitForSelector",
+        type: "string",
+        required: false,
+        description: "CSS selector to wait for on each page before extracting",
       },
       {
         name: "webhookUrl",

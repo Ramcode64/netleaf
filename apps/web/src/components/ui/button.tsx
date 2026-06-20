@@ -16,6 +16,18 @@ const sizes: Record<Size, string> = {
   lg: "h-12 px-6 text-base",
 };
 
+const base =
+  "inline-flex items-center justify-center gap-2 rounded-lg transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-500/60";
+
+/**
+ * Button styling as a class string — for cases where the element must be an
+ * anchor (external links, downloads) rather than a <button>. Avoids the
+ * invalid <a><button> nesting that wrapping <Button> in <a> produces (F4-2).
+ */
+export function buttonClasses(opts?: { variant?: Variant; size?: Size; className?: string }): string {
+  return cn(base, variants[opts?.variant ?? "primary"], sizes[opts?.size ?? "md"], opts?.className);
+}
+
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -26,12 +38,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", ...props }, ref) => (
     <button
       ref={ref}
-      className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf-500/60",
-        variants[variant],
-        sizes[size],
-        className
-      )}
+      className={cn(base, variants[variant], sizes[size], className)}
       {...props}
     />
   )

@@ -4,6 +4,21 @@ import type { NextConfig } from "next";
 // It must be added to connect-src so the TryIt panel can reach the API from the browser.
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
+// T4-1: when the API URL is loopback (the Vercel showcase ships the localhost
+// placeholder), don't append it to connect-src — a public HTTPS page that
+// allow-lists http://localhost:3000 is a mixed-content / confusing-CSP smell,
+// and the UI already degrades those features via isLoopbackApiUrl(). Only widen
+// connect-src when the API is a real remote origin.
+function isLoopback(u: string): boolean {
+  try {
+    const h = new URL(u).hostname.toLowerCase();
+    return ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].includes(h);
+  } catch {
+    return false;
+  }
+}
+const connectSrc = isLoopback(apiUrl) ? "connect-src 'self'" : `connect-src 'self' ${apiUrl}`;
+
 // React's dev build needs 'unsafe-eval' for callstack reconstruction and hot-reload.
 // The React team explicitly states eval() is never used in production builds.
 const isDev = process.env.NODE_ENV !== "production";
@@ -29,8 +44,9 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data:",
       "font-src 'self'",
-      // Allow the TryIt panel to POST to the API (may be on a different origin/port)
-      `connect-src 'self' ${apiUrl}`,
+      // Allow the TryIt panel to POST to the API (may be on a different origin/port).
+      // Drops to 'self' alone when apiUrl is loopback — see T4-1 note above.
+      connectSrc,
       "frame-ancestors 'none'",
     ].join("; "),
   },

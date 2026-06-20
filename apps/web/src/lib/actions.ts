@@ -5,8 +5,8 @@ import { createRequire } from "module";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "./auth";
 import { getDb, apiKeys, scheduledCrawls } from "./db";
+import { requireUserIdOrThrow } from "./session-guard";
 
 // cron-parser is CJS; use the same shim pattern as apps/api so it works under
 // Next.js's ESM build without bringing the whole library through Webpack.
@@ -39,12 +39,9 @@ function hasMinFiveMinuteInterval(cronExpression: string): boolean {
 
 const uuidSchema = z.string().uuid();
 
-async function requireUserId(): Promise<string> {
-  const session = await auth();
-  const userId = (session?.user as { id?: string } | undefined)?.id;
-  if (!userId) throw new Error("Not authenticated");
-  return userId;
-}
+// Server actions use the throwing variant — they map the error into a
+// { ok: false } result rather than redirecting mid-mutation (T4-5).
+const requireUserId = requireUserIdOrThrow;
 
 export interface CreatedKey {
   id: string;

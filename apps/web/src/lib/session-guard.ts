@@ -23,3 +23,17 @@ export async function requireUserId(): Promise<string> {
   }
   return id;
 }
+
+/**
+ * Server-action variant: throws instead of redirecting. A redirect() inside a
+ * server action surfaces as a thrown control-flow signal anyway, but actions
+ * that need the id for a mutation want an explicit error they can map to a
+ * `{ ok: false }` result. Kept alongside requireUserId so the two auth paths
+ * (page render vs. mutation) share one source of truth (T4-5).
+ */
+export async function requireUserIdOrThrow(): Promise<string> {
+  const session = await auth();
+  const id = (session?.user as { id?: string } | undefined)?.id;
+  if (!id) throw new Error("Not authenticated");
+  return id;
+}

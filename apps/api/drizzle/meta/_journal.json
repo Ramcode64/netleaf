@@ -15,6 +15,13 @@
       "when": 1781784925543,
       "tag": "0001_useful_adam_destine",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781955298833,
+      "tag": "0002_sturdy_fixer",
+      "breakpoints": true
     }
   ]
 }

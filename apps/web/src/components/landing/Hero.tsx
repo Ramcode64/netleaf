@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { ArrowRight, Github } from "lucide-react";
 
 export function Hero() {
@@ -54,12 +54,11 @@ export function Hero() {
             <a
               href="https://github.com/Ramcode64/netleaf"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
+              className={buttonClasses({ size: "lg", className: "glow px-8" })}
             >
-              <Button size="lg" className="glow gap-2 px-8">
-                <Github className="h-4 w-4" />
-                Self-host on GitHub
-              </Button>
+              <Github className="h-4 w-4" />
+              Self-host on GitHub
             </a>
           ) : (
             <Link href="/signup">
@@ -138,7 +137,8 @@ export function Hero() {
           </div>
 
           <p className="mt-5 text-center text-sm text-ink-400">
-            Or use local mode — no sign-up, no auth. Just curl and go.
+            Run it locally — <code className="font-mono text-ink-300">docker compose up</code>, then
+            curl <code className="font-mono text-ink-300">http://localhost:3000</code>. No sign-up, no auth.
           </p>
         </div>
       </div>

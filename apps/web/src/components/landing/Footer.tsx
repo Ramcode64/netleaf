@@ -11,7 +11,7 @@ const links = {
   ],
   Developers: [
     { label: "Docs", href: "/docs" },
-    { label: "API Reference", href: "/docs/scrape" },
+    { label: "Scrape endpoint", href: "/docs/scrape" },
     {
       label: "GitHub",
       href: "https://github.com/Ramcode64/netleaf",

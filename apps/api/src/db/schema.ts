@@ -139,6 +139,10 @@ export const scheduledCrawls = pgTable(
   },
   (table) => ({
     nextRunIdx: index("scheduled_crawls_next_run_idx").on(table.nextRunAt),
+    // T-4: list + count + ownership filters all key on user_id (schedule.ts
+    // GET/PATCH/DELETE + the dashboard). Composite with created_at matches the
+    // crawl_jobs index and serves the ORDER BY created_at DESC dashboard list.
+    userIdIdx: index("scheduled_crawls_user_id_idx").on(table.userId, table.createdAt),
   })
 );
 

@@ -57,6 +57,9 @@ export const crawlJobs = pgTable("crawl_jobs", {
   completedAt: timestamp("completed_at", { withTimezone: true }),
 });
 
+// NOTE: web is READ-ONLY over crawl_pages — only the API writes here (worker
+// inserts, with the (job_id, idx) unique index that the API schema enforces).
+// This mirror omits that index intentionally; do not add web-side writes.
 export const crawlPages = pgTable("crawl_pages", {
   id: uuid("id").defaultRandom().primaryKey(),
   jobId: uuid("job_id").notNull(),
