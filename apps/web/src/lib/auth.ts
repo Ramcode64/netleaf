@@ -1,10 +1,17 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 
 const _secret = process.env.AUTH_SECRET ?? "";
+// Skip the hard check during `next build` (page-data collection): the secret
+// is a RUNTIME concern, injected when the container starts, not baked into the
+// image. Without this, a Docker build with AUTH_SECRET passed only as a runtime
+// env (not a build ARG) crashes at static analysis. The throw still fires at
+// runtime on a real missing/weak secret.
+const _isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 if (
-  !_secret ||
-  _secret.length < 32 ||
-  /^(change.me|replace.me|secret|placeholder|example|changeme)/i.test(_secret)
+  !_isBuildPhase &&
+  (!_secret ||
+    _secret.length < 32 ||
+    /^(change.me|replace.me|secret|placeholder|example|changeme)/i.test(_secret))
 ) {
   if (process.env.NODE_ENV === "production") {
     throw new Error(
@@ -24,6 +31,7 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { getDb, users } from "./db";
+import { isRateLimited } from "./rate-limit";
 
 // Sentinel hash for constant-time login. When the supplied email matches no row,
 // we still run bcrypt.compare against this hash so the response time is
@@ -63,33 +71,11 @@ const providers: NextAuthConfig["providers"] = [
       // case, etc. — each variation is a distinct bucket.
       const email = normalizeEmail(rawEmail);
 
-      // In-process login rate limit: 10 attempts per email per 15 minutes.
-      // Limitation: resets on server restart and is not shared across processes
-      // or serverless instances. For production multi-instance deployments,
-      // replace with a Redis-backed counter. For single-instance self-hosting
-      // this is sufficient to block naive credential-stuffing scripts.
-      const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-      const LOGIN_MAX = 10;
-      type LoginEntry = { count: number; resetAt: number };
-      const g = globalThis as Record<string, unknown>;
-      if (!g._loginAttempts) g._loginAttempts = new Map<string, LoginEntry>();
-      const loginMap = g._loginAttempts as Map<string, LoginEntry>;
-
-      const now = Date.now();
-
-      // Evict expired entries to prevent unbounded map growth (memory leak)
-      if (loginMap.size > 5000) {
-        for (const [k, v] of loginMap) {
-          if (now > v.resetAt) loginMap.delete(k);
-        }
-      }
-
-      const entry = loginMap.get(email);
-      if (entry && now < entry.resetAt) {
-        entry.count++;
-        if (entry.count > LOGIN_MAX) return null;
-      } else {
-        loginMap.set(email, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+      // Login rate limit: 10 attempts per email per 15 minutes. Distributed via
+      // Upstash when configured (T-11), per-instance in-memory otherwise.
+      // Keyed on the normalized email so case/whitespace variants share a bucket.
+      if (await isRateLimited(`login:${email}`, 10, 15 * 60)) {
+        return null;
       }
 
       const db = getDb();

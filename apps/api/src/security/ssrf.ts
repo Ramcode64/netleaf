@@ -101,6 +101,30 @@ function isBlockedIp(ip: string): boolean {
 }
 
 /**
+ * H-4 residual: the Playwright/Chromium path (scrape, crawl) resolves and
+ * connects on its own, outside Node's control, so the in-code IP pinning in
+ * safeFetch can't protect it. In a multi-tenant production deployment that path
+ * needs a network-level egress firewall blocking outbound to RFC-1918 /
+ * link-local / metadata ranges.
+ *
+ * This logs a loud one-time warning at startup unless the operator declares
+ * (EGRESS_FIREWALL_DECLARED=true) that such filtering is in place. Not a hard
+ * failure — single-tenant self-hosters on a trusted network are fine — but it
+ * makes the requirement impossible to miss. Skipped in LOCAL_MODE.
+ */
+export function assertEgressPosture(): void {
+  if (process.env.NODE_ENV !== "production") return;
+  if (process.env.LOCAL_MODE === "true") return;
+  if (process.env.EGRESS_FIREWALL_DECLARED === "true") return;
+  console.warn(
+    "[security] SSRF: the headless-browser scrape/crawl path cannot be IP-pinned " +
+      "in code (Chromium manages its own DNS). For multi-tenant production, block " +
+      "outbound traffic to private/link-local/metadata ranges at the network layer, " +
+      "then set EGRESS_FIREWALL_DECLARED=true to silence this warning. See H-4."
+  );
+}
+
+/**
  * Validate a single URL: scheme allowlist + DNS resolution + IP range check.
  * Returns the parsed URL on success; throws SsrfError otherwise.
  * Does NOT follow redirects — use safeFetch for that.
@@ -153,8 +177,15 @@ export async function assertPublicUrl(rawUrl: string): Promise<URL> {
 
 /**
  * fetch() that re-validates every redirect hop against assertPublicUrl,
- * defeating redirect-based SSRF and (per-hop) DNS rebinding. Redirects are
- * handled manually so a public URL cannot 302 to an internal one.
+ * defeating redirect-based SSRF. Redirects are handled manually so a public URL
+ * cannot 302 to an internal one.
+ *
+ * H-4 (DNS-rebinding TOCTOU) note: there is a residual window between
+ * assertPublicUrl's resolution and fetch's own connect-time resolution. Closing
+ * it in code would require pinning the validated IP onto the socket, but (a) the
+ * Chromium scrape/crawl path can't be pinned from Node at all, and (b) mixing a
+ * standalone undici dispatcher with Node's built-in fetch is version-fragile.
+ * The robust fix is network-level egress filtering — see assertEgressPosture().
  */
 export async function safeFetch(
   rawUrl: string,

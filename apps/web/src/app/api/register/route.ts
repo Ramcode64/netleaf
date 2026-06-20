@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getDb, users } from "@/lib/db";
+import { isRateLimited } from "@/lib/rate-limit";
 
 const RegisterSchema = z.object({
   email: z.string().email().max(254),
@@ -9,33 +10,10 @@ const RegisterSchema = z.object({
   name: z.string().min(1).max(100).optional(),
 });
 
-// Simple in-process rate limiter: 5 registrations per IP per 10 minutes.
-// Not distributed — each serverless instance tracks independently — but still
-// blocks naive scripted abuse effectively.
-const attempts = new Map<string, { count: number; resetAt: number }>();
-const WINDOW_MS = 10 * 60 * 1000;
-const MAX_ATTEMPTS = 5;
-const MAX_MAP_SIZE = 10_000;
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-
-  // Evict expired entries when the map is large to prevent unbounded growth
-  // (an attacker rotating IPv6 /64 addresses can otherwise grow it forever).
-  if (attempts.size > MAX_MAP_SIZE) {
-    for (const [k, v] of attempts) {
-      if (now > v.resetAt) attempts.delete(k);
-    }
-  }
-
-  const entry = attempts.get(ip);
-  if (!entry || now > entry.resetAt) {
-    attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return false;
-  }
-  entry.count++;
-  return entry.count > MAX_ATTEMPTS;
-}
+// 5 registrations per IP per 10 minutes — now distributed via Upstash when
+// configured (T-11), per-instance in-memory otherwise.
+const REGISTER_MAX = 5;
+const REGISTER_WINDOW_SEC = 10 * 60;
 
 function normalizeEmail(input: string): string {
   return input.trim().normalize("NFKC").toLowerCase();
@@ -78,7 +56,7 @@ export async function POST(request: Request) {
 
   const ip = clientIp(request);
 
-  if (isRateLimited(ip)) {
+  if (await isRateLimited(`register:${ip}`, REGISTER_MAX, REGISTER_WINDOW_SEC)) {
     return NextResponse.json(
       { error: "Too many registration attempts. Please try again later." },
       { status: 429 }

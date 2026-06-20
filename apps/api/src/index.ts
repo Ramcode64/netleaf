@@ -4,6 +4,7 @@ import { buildServer } from "./api/server.js";
 import { config } from "./config/index.js";
 import { seedLegacyKeys, seedLocalUser } from "./db/seed.js";
 import { startScheduler, stopScheduler } from "./services/scheduler.js";
+import { assertEgressPosture } from "./security/ssrf.js";
 
 async function main() {
   // Refuse to start with LOCAL_MODE=true in production — local mode bypasses
@@ -40,6 +41,9 @@ async function main() {
       console.warn("Zombie job reaper failed:", err.message)
     );
   }
+
+  // H-4: warn if the browser egress path isn't declared firewalled in prod.
+  assertEgressPosture();
 
   console.log("Starting browser pool...");
   await pool.init();
