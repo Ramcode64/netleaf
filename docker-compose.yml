@@ -55,6 +55,9 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      # Which Ollama model /v1/extract uses. Defaults to llama3.1 in code — set
+      # this to a model you've actually pulled (e.g. qwen3.5:4b, gemma4:e4b).
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
       BRAVE_API_KEY: ${BRAVE_API_KEY:-}
       LEGACY_API_KEYS: ${LEGACY_API_KEYS:-}
       BROWSER_POOL_SIZE: ${BROWSER_POOL_SIZE:-3}
