@@ -10,7 +10,7 @@ Turn any website into clean, structured data — markdown, JSON, CSV, or AI-read
 Self-host in one command. No rate limits. No credit cards. No cloud lock-in.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](https://github.com/Ramcode64/netleaf/blob/main/LICENSE)
-[![Tests](https://img.shields.io/badge/tests-95%20passing-22c55e?style=flat-square)](#running-tests)
+[![Tests](https://img.shields.io/badge/tests-105%20passing-22c55e?style=flat-square)](#running-tests)
 [![Docker](https://img.shields.io/badge/docker-one%20command-3b82f6?style=flat-square)](#quickstart)
 [![Multi-LLM](https://img.shields.io/badge/LLM-Claude%20%7C%20OpenAI%20%7C%20Ollama-a855f7?style=flat-square)](#-llm-powered-extraction)
 [![Live Demo](https://img.shields.io/badge/live%20demo-netleaf.vercel.app-0ea5e9?style=flat-square)](https://netleaf.vercel.app)
@@ -174,9 +174,11 @@ curl -X POST http://localhost:3000/v1/scrape \
 
 | Option | Type | Description |
 |---|---|---|
-| `formats` | `string[]` | `"markdown"`, `"html"`, `"text"`, or `"links"` |
-| `waitForSelector` | `string` | CSS selector to wait for before extracting (e.g. `"main"`) |
+| `formats` | `string[]` | `"markdown"`, `"html"`, `"text"`, or `"links"` (same-host links) |
+| `waitForSelector` | `string` | CSS selector to wait for before extracting (e.g. `"main"`). If not found within 5s, a non-fatal `warnings` entry is returned and partial content is still delivered. |
 | `timeout` | `number` | Navigation timeout in ms (1000–60000, default 30000) |
+
+Markdown link/image hrefs are absolutized against the page URL, so the output is portable. A `warnings` array is included only when something non-fatal happened (e.g. a missing `waitForSelector`).
 
 ---
 
@@ -200,15 +202,22 @@ curl -X POST http://localhost:3000/v1/crawl \
   }'
 # → { "success": true, "data": { "jobId": "abc-123" } }
 
-# 2. Check progress
-curl http://localhost:3000/v1/crawl/abc-123
-# → { "status": "running", "totalScraped": 34, "totalFound": 89 }
+# 2. Check progress — use the lightweight /status endpoint while polling
+curl http://localhost:3000/v1/crawl/abc-123/status
+# → { "status": "running", "totalScraped": 34, "totalFound": 89, "webhookSent": false }
 
-# 3. Export when done
+# 3. Fetch full results (paginated: ?offset=&limit=, max 500/page)
+curl http://localhost:3000/v1/crawl/abc-123
+
+# 4. Export when done
 curl "http://localhost:3000/v1/crawl/abc-123/export?format=csv" -o results.csv
 ```
 
-**Export formats:** `json` · `csv` · `xml` · `zip` (one `.md` file per page)
+- **`GET /v1/crawl/:id/status`** — lightweight polling (no page join); includes `webhookSent` delivery status when a webhook is attached.
+- **`GET /v1/crawl/:id`** — full results, paginated via `?offset=&limit=`.
+- **`POST /v1/crawl/:id/webhook`** — attach a webhook to a running job (409 if already finished).
+- **Export formats:** `json` · `csv` · `xml` · `zip` (one `.md` file per page).
+- SSRF-blocked start URLs are rejected immediately with `422` (not accepted then failed).
 
 ---
 
@@ -234,6 +243,14 @@ curl -X POST http://localhost:3000/v1/map \
   }
 }
 ```
+
+| Option | Type | Description |
+|---|---|---|
+| `limit` | `number` | Max URLs to return (default 100, max 1000) |
+| `includeSubdomains` | `boolean` | Include links to subdomains of the target host |
+| `includeExternal` | `boolean` | Include off-domain links (capped at 50) |
+
+When a site has no sitemap and the homepage exposes no same-host links, the response includes a `note` explaining the empty result (rather than looking broken).
 
 ---
 
@@ -362,12 +379,14 @@ curl -fsSL https://ollama.ai/install.sh | sh
 # 2. Pull a model (llama3.2 is fast and small — ~2GB download)
 ollama pull llama3.2
 
-# 3. Start Netleaf (Ollama runs on your host machine, the Docker container
-#    reaches it via the special host.docker.internal address)
-OLLAMA_URL=http://host.docker.internal:11434 docker compose up
+# 3. Tell Netleaf which model to use, then start it. Ollama runs on your host;
+#    the Docker container reaches it via host.docker.internal.
+OLLAMA_URL=http://host.docker.internal:11434 OLLAMA_MODEL=llama3.2 docker compose up
 ```
 
 Then use `"provider": "ollama"` in `/v1/extract`. The entire scrape → AI extraction loop never leaves your machine.
+
+> **Reasoning models** (qwen3, deepseek-r1, etc.) are fully supported — Netleaf sends `think: false` and falls back to the `thinking` field so structured output is captured reliably. Set `OLLAMA_MODEL` to whatever you've pulled; it defaults to `llama3.1`.
 
 ---
 
@@ -381,10 +400,10 @@ Then use `"provider": "ollama"` in `/v1/extract`. The entire scrape → AI extra
 > - **Redis** — an in-memory database used by BullMQ to store the job queue
 > - **Drizzle ORM** — a TypeScript library for querying PostgreSQL safely (no raw SQL strings = no SQL injection)
 > - **PostgreSQL** — the main database storing users, API keys, crawl results
-> - **Next.js 15** — the React framework powering the web dashboard (App Router = file-based routing)
+> - **Next.js 16** — the React framework powering the web dashboard (App Router = file-based routing)
 > - **Tailwind CSS** — a utility-first CSS framework (style by adding class names)
 > - **Auth.js v5** — handles login sessions, JWT tokens, OAuth (Google) for the dashboard
-> - **Vitest** — a fast JavaScript test runner (95 tests across all services)
+> - **Vitest** — a fast JavaScript test runner (105 tests across all services)
 
 ```
 netleaf/
@@ -399,7 +418,7 @@ netleaf/
 │   │       ├── services/       # map · extract · search · diff · scheduler · webhook
 │   │       └── api/routes/     # scrape · crawl · map · extract · search · schedule · keys
 │   │
-│   └── web/                    # Next.js 15 dashboard (App Router)
+│   └── web/                    # Next.js 16 dashboard (App Router)
 │       └── src/
 │           ├── app/            # landing, auth, dashboard, docs, API routes
 │           ├── components/     # landing sections, dashboard widgets, docs Try-It UI
@@ -420,10 +439,14 @@ Netleaf is designed to be safe to expose as a public service, not just a persona
 | **SSRF guard** | Attackers using Netleaf to scrape your internal network (e.g. `192.168.x.x`, AWS metadata at `169.254.169.254`). All redirect chains are validated hop-by-hop. |
 | **Scheme allowlist** | `file://`, `javascript:`, `ftp://`, `data:` URLs are rejected before any fetch |
 | **Schema size limits** | `/v1/extract` schemas capped at 50KB, depth ≤ 20, `$ref` rejected — prevents memory exhaustion |
-| **Rate limiting** | Per-token rate limiting runs before auth, blocking abuse even on invalid keys |
+| **Rate limiting** | Per-token rate limiting runs before auth. Distributed across instances via Upstash when configured (`UPSTASH_REDIS_REST_URL`), in-memory fallback otherwise |
+| **Consistent error envelope** | Global handlers map DB/Redis failures → `503` (no internal hostnames leaked), malformed bodies → `400`, and unknown routes → a `{success:false,error}` 404. Validation errors include the field path |
 | **CSV injection prevention** | Cells starting with `= + - @ \t` are prefixed with `'` — prevents formula injection when opened in Excel |
 | **No account enumeration** | Registration uses constraint-violation catch (not check-then-insert) — can't probe whether an email is registered |
-| **95 tests** | Dedicated SSRF test suite covering 20 attack vectors |
+| **Constant-time login** | Dummy bcrypt compare on unknown emails equalizes response time (no timing oracle) |
+| **105 tests** | Dedicated SSRF test suite covering 20 attack vectors |
+
+> **DNS rebinding (H-4):** the headless-browser scrape/crawl path manages its own DNS and can't be IP-pinned in code. For untrusted multi-tenant deployments, pair Netleaf with a **network-level egress firewall** blocking outbound traffic to private/link-local/metadata ranges, then set `EGRESS_FIREWALL_DECLARED=true` to silence the startup warning. The plain-fetch paths (map/sitemap) revalidate every redirect hop.
 
 > **What is SSRF?** Server-Side Request Forgery. An attack where a malicious user tricks your server into making HTTP requests to internal services (your database, cloud metadata APIs, internal admin panels) that should never be publicly reachable. Netleaf's egress guard blocks this.
 
@@ -442,8 +465,11 @@ Netleaf is designed to be safe to expose as a public service, not just a persona
 | `ANTHROPIC_API_KEY` | — | No | Enable Claude as an extraction provider |
 | `OPENAI_API_KEY` | — | No | Enable OpenAI as an extraction provider |
 | `OLLAMA_URL` | `http://localhost:11434` | No | Enable Ollama for free local AI extraction |
+| `OLLAMA_MODEL` | `llama3.1` | No | Which pulled Ollama model `/v1/extract` uses (e.g. `qwen3.5:4b`) |
 | `BRAVE_API_KEY` | — | No | Enable `/v1/search` (2000 free req/month) |
+| `WEBHOOK_SECRET` | — | No | If set, outgoing webhooks include an `X-Netleaf-Signature` HMAC for receiver verification |
 | `ALLOW_PRIVATE_IPS` | `false` | — | Set `true` only for trusted local dev — disables SSRF protection |
+| `EGRESS_FIREWALL_DECLARED` | `false` | — | Set `true` once a network-level egress firewall is in place (silences the H-4 startup warning) |
 | `MAX_CONTENT_CHARS` | `5000000` | — | Max characters stored per scraped page (~5MB) |
 
 ### `apps/web` (the dashboard)
@@ -457,6 +483,8 @@ Netleaf is designed to be safe to expose as a public service, not just a persona
 | `DISABLE_REGISTRATION` | No | Set `"true"` to block new signups on public deployments |
 | `AUTH_GOOGLE_ID` | No | Google OAuth client ID (optional, enables Google login) |
 | `AUTH_GOOGLE_SECRET` | No | Google OAuth client secret |
+| `UPSTASH_REDIS_REST_URL` | No | Enable distributed (cross-instance) rate limiting on serverless |
+| `UPSTASH_REDIS_REST_TOKEN` | No | Token paired with the Upstash REST URL above |
 
 ---
 
@@ -484,7 +512,7 @@ npm run dev --workspace=apps/web
 ## Running Tests
 
 ```bash
-# Run all 95 tests
+# Run all 105 tests
 npm test --workspace=apps/api
 
 # Type-check both apps
@@ -509,6 +537,22 @@ Tests cover: scraper extraction, link parser, map service, search service, webho
 - File naming: `lowercase-kebab.ts`
 - Tests required for all new endpoints
 - Security-sensitive changes must include tests in `src/security/`
+
+---
+
+## Production Deployment
+
+Netleaf is solid for **self-hosting today** (`docker compose up` — all features verified end-to-end, including LLM extraction). Before exposing it as a **public, multi-tenant service**, work through this checklist:
+
+- [ ] **Set `LOCAL_MODE=false`** and provision API keys (the startup guard refuses `LOCAL_MODE=true` + `NODE_ENV=production`).
+- [ ] **Generate strong secrets** — `AUTH_SECRET`, `POSTGRES_PASSWORD` (`openssl rand -base64 32`).
+- [ ] **Set `AUTH_URL`** to your real web origin and `NEXT_PUBLIC_API_URL` to your real API origin.
+- [ ] **Network egress firewall (H-4)** — block outbound to private/link-local/metadata ranges, then set `EGRESS_FIREWALL_DECLARED=true`. *Required for untrusted multi-tenant.*
+- [ ] **Distributed rate limiting** — set `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (otherwise limits are per-instance).
+- [ ] **Webhook signing** — set `WEBHOOK_SECRET` so receivers can verify payloads.
+- [ ] **Serve over HTTPS** (HSTS is already sent) and deploy the API somewhere reachable by the dashboard.
+
+For single-tenant / internal use, only the secrets and HTTPS items apply.
 
 ---
 
